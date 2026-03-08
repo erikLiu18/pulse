@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
-import { roundToNearestMinutes, format } from 'date-fns';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { format } from 'date-fns';
 import { useAppStore } from '../../stores/appStore';
 import { api } from '../../lib/api';
-import type { Category, Subcategory } from '../../lib/api';
+import type { Category, Subcategory, Entry } from '../../lib/api';
 import CategoryGrid from './CategoryGrid';
 import SubcategoryDrawer from './SubcategoryDrawer';
 import DurationStepper from './DurationStepper';
@@ -12,11 +12,57 @@ interface QuickEntryProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
+  entries?: Entry[];
 }
 
 type Step = 1 | 2 | 3;
 
-export default function QuickEntry({ isOpen, onClose, onSaved }: QuickEntryProps) {
+/** Find the first available gap in the timeline, returning an "HH:mm" string. */
+function findFirstGap(entries: Entry[]): string {
+  const DAY_START = 6 * 60; // 06:00 in minutes
+
+  // Parse existing entries into sorted [start, end] minute ranges
+  const ranges = entries
+    .filter((e) => e.start_time)
+    .map((e) => {
+      const [h, m] = e.start_time!.split(':').map(Number);
+      const start = h * 60 + m;
+      return { start, end: start + (e.duration_minutes || 0) };
+    })
+    .sort((a, b) => a.start - b.start);
+
+  // Walk from DAY_START, looking for a 15-min gap
+  let cursor = DAY_START;
+  for (const r of ranges) {
+    if (cursor + 15 <= r.start) {
+      // Found a gap before this entry
+      break;
+    }
+    // Move cursor past this entry if it overlaps
+    if (r.end > cursor) {
+      cursor = r.end;
+    }
+  }
+
+  // Snap to 15-min boundary
+  cursor = Math.ceil(cursor / 15) * 15;
+
+  const hh = String(Math.floor(cursor / 60)).padStart(2, '0');
+  const mm = String(cursor % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+/** Fallback: round current time down to nearest 15 min */
+function roundedNow(): string {
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const rounded = Math.floor(mins / 15) * 15;
+  const hh = String(Math.floor(rounded / 60)).padStart(2, '0');
+  const mm = String(rounded % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
+export default function QuickEntry({ isOpen, onClose, onSaved, entries = [] }: QuickEntryProps) {
   const [step, setStep] = useState<Step>(1);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<Subcategory | null>(null);
@@ -25,6 +71,13 @@ export default function QuickEntry({ isOpen, onClose, onSaved }: QuickEntryProps
 
   const activeProfileId = useAppStore((s) => s.activeProfileId);
   const selectedDate = useAppStore((s) => s.selectedDate);
+
+  const startTime = useMemo(() => {
+    if (entries.length > 0) {
+      return findFirstGap(entries);
+    }
+    return roundedNow();
+  }, [entries]);
 
   // Reset state when sheet opens
   useEffect(() => {
@@ -59,21 +112,15 @@ export default function QuickEntry({ isOpen, onClose, onSaved }: QuickEntryProps
   );
 
   const handleSave = useCallback(
-    async (duration: number, tags: string[], note: string) => {
+    async (duration: number, tags: string[], note: string, customStartTime: string) => {
       if (!selectedSubcategory) return;
       setSaving(true);
       try {
-        const rounded = roundToNearestMinutes(new Date(), {
-          nearestTo: 15,
-          roundingMethod: 'floor',
-        });
-        const startTime = format(rounded, 'HH:mm');
-
         await api.createEntry({
           profile_id: activeProfileId,
           subcategory_id: selectedSubcategory.id,
           date: selectedDate,
-          start_time: startTime,
+          start_time: customStartTime,
           duration_minutes: duration,
           tags: tags.length > 0 ? tags : undefined,
           note: note.trim() || undefined,
@@ -92,18 +139,18 @@ export default function QuickEntry({ isOpen, onClose, onSaved }: QuickEntryProps
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/30 animate-fade-in"
         onClick={onClose}
       />
 
-      {/* Sheet */}
+      {/* Modal */}
       <div
         className={clsx(
-          'relative w-full max-w-lg bg-white rounded-t-3xl',
-          'shadow-2xl max-h-[70vh] overflow-y-auto',
+          'relative w-full max-w-lg mx-4 bg-white rounded-3xl',
+          'shadow-2xl max-h-[85vh] overflow-y-auto',
           'animate-slide-up',
         )}
       >
@@ -144,6 +191,7 @@ export default function QuickEntry({ isOpen, onClose, onSaved }: QuickEntryProps
             <DurationStepper
               category={selectedCategory}
               subcategory={selectedSubcategory}
+              startTime={startTime}
               onSave={handleSave}
               onBack={() => goToStep(2, 'back')}
               saving={saving}

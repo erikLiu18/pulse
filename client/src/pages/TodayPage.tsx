@@ -48,6 +48,7 @@ export default function TodayPage() {
         isOpen={showQuickEntry}
         onClose={() => setShowQuickEntry(false)}
         onSaved={fetchData}
+        entries={entries}
       />
     </div>
   );

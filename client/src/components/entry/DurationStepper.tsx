@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { ChevronLeft, Minus, Plus, X } from 'lucide-react';
+import { ChevronLeft, Minus, Plus, X, Clock } from 'lucide-react';
 import type { Category, Subcategory } from '../../lib/api';
 import clsx from 'clsx';
 
 interface DurationStepperProps {
   category: Category;
   subcategory: Subcategory;
-  onSave: (duration: number, tags: string[], note: string) => void;
+  startTime: string;
+  onSave: (duration: number, tags: string[], note: string, startTime: string) => void;
   onBack: () => void;
   saving: boolean;
 }
@@ -18,9 +19,19 @@ function formatDuration(mins: number): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+/** Add minutes to an "HH:mm" string and return a new "HH:mm" string. */
+function addMinutes(time: string, mins: number): string {
+  const [h, m] = time.split(':').map(Number);
+  const total = h * 60 + m + mins;
+  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0');
+  const mm = String(total % 60).padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+
 export default function DurationStepper({
   category,
   subcategory,
+  startTime: initialStartTime,
   onSave,
   onBack,
   saving,
@@ -29,6 +40,10 @@ export default function DurationStepper({
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [note, setNote] = useState('');
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [editingTime, setEditingTime] = useState(false);
+
+  const endTime = addMinutes(startTime, duration);
 
   const decrement = () => setDuration((d) => Math.max(15, d - 15));
   const increment = () => setDuration((d) => Math.min(480, d + 15));
@@ -60,7 +75,7 @@ export default function DurationStepper({
       </div>
 
       {/* Duration stepper */}
-      <div className="flex items-center justify-center gap-6 mb-6">
+      <div className="flex items-center justify-center gap-6 mb-2">
         <button
           onClick={decrement}
           disabled={duration <= 15}
@@ -91,6 +106,32 @@ export default function DurationStepper({
         >
           <Plus className="w-5 h-5" />
         </button>
+      </div>
+
+      {/* Time range display */}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        <Clock className="w-3.5 h-3.5 text-gray-400" />
+        {editingTime ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              onBlur={() => setEditingTime(false)}
+              autoFocus
+              className="text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-gray-200 w-24"
+            />
+            <span className="text-sm text-gray-400">-</span>
+            <span className="text-sm font-medium text-gray-500">{endTime}</span>
+          </div>
+        ) : (
+          <button
+            onClick={() => setEditingTime(true)}
+            className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            {startTime} - {endTime}
+          </button>
+        )}
       </div>
 
       {/* Tags */}
@@ -134,7 +175,7 @@ export default function DurationStepper({
 
       {/* Save button */}
       <button
-        onClick={() => onSave(duration, tags, note)}
+        onClick={() => onSave(duration, tags, note, startTime)}
         disabled={saving}
         className={clsx(
           'w-full py-3.5 rounded-2xl text-white font-semibold text-base',
