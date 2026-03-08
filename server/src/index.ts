@@ -7,6 +7,7 @@ import profileRoutes from './routes/profiles.js';
 import categoryRoutes from './routes/categories.js';
 import entryRoutes from './routes/entries.js';
 import statRoutes from './routes/stats.js';
+import insightRoutes from './routes/insights.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -28,6 +29,7 @@ app.use('/api/profiles', profileRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/entries', entryRoutes);
 app.use('/api/stats', statRoutes);
+app.use('/api/insights', insightRoutes);
 
 // In production, serve the built React app
 const clientDist = path.join(__dirname, '..', '..', 'client', 'dist');
