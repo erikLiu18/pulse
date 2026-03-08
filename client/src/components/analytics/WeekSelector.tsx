@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
+import { format, endOfWeek, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 
 interface WeekSelectorProps {
   weekStart: Date;
