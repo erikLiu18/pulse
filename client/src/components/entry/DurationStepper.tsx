@@ -241,13 +241,7 @@ export default function DurationStepper({
       <div className="flex gap-2">
         {onStartNow && (
           <button
-            onClick={() => {
-              const now = new Date();
-              const mins = now.getHours() * 60 + now.getMinutes();
-              const rounded = Math.round(mins / 15) * 15;
-              const nowTime = minutesToTime(rounded);
-              onStartNow(tags, note, nowTime);
-            }}
+            onClick={() => onStartNow(tags, note, startTime)}
             disabled={saving}
             className={clsx(
               'flex-1 py-3.5 rounded-2xl text-white font-semibold text-base',
@@ -258,7 +252,7 @@ export default function DurationStepper({
             style={{ backgroundColor: '#10B981' }}
           >
             <Play className="w-4 h-4" />
-            {saving ? 'Starting...' : 'Start Now'}
+            {saving ? 'Starting...' : `Start @ ${formatTime12h(startTime)}`}
           </button>
         )}
         <button

@@ -136,7 +136,9 @@ export default function Timeline({ entries, onRefresh }: Props) {
               ? Math.max(currentMinutes - startMin, 15)
               : (entry.duration_minutes || 15);
             const top = (startMin / 15) * PX_PER_15;
-            const height = Math.max((duration / 15) * PX_PER_15, PX_PER_15);
+            // Active entries get minimum 48px height so Finish button is always visible
+            const minHeight = isActive ? 48 : PX_PER_15;
+            const height = Math.max((duration / 15) * PX_PER_15, minHeight);
             const color = entry.category_color || '#3B82F6';
             const endTime = isActive ? 'now' : fmtTime(startMin + duration);
 
@@ -147,7 +149,7 @@ export default function Timeline({ entries, onRefresh }: Props) {
             return (
               <div
                 key={entry.id}
-                className={`absolute group rounded-md shadow-sm border overflow-hidden cursor-default transition-shadow hover:shadow-md ${isActive ? 'ring-2 ring-offset-1 animate-pulse' : ''}`}
+                className={`absolute group rounded-md shadow-sm border overflow-hidden cursor-default transition-shadow hover:shadow-md ${isActive ? 'ring-2 ring-offset-1' : ''}`}
                 style={{
                   top,
                   height,
@@ -202,12 +204,21 @@ export default function Timeline({ entries, onRefresh }: Props) {
                     )}
                   </div>
                 ) : (
-                  /* Very short block — just show icon */
+                  /* Very short block — icon + finish if active */
                   <div className="flex items-center h-full px-1.5 gap-1">
                     <span className="text-xs">{entry.subcategory_icon || entry.category_icon}</span>
                     <span className="text-[11px] font-semibold truncate" style={{ color }}>
                       {entry.subcategory_name || ''}
                     </span>
+                    {isActive && (
+                      <button
+                        onClick={() => handleFinish(entry.id)}
+                        className="ml-auto shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-semibold hover:bg-red-600 transition-colors"
+                      >
+                        <Square size={8} />
+                        Finish
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
