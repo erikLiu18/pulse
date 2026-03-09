@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, X, Clock, ArrowRight } from 'lucide-react';
+import { ChevronLeft, X, Clock, ArrowRight, Play } from 'lucide-react';
 import type { Category, Subcategory } from '../../lib/api';
 import clsx from 'clsx';
 
@@ -8,6 +8,7 @@ interface DurationStepperProps {
   subcategory: Subcategory;
   startTime: string;
   onSave: (duration: number, tags: string[], note: string, startTime: string) => void;
+  onStartNow?: (tags: string[], note: string, startTime: string) => void;
   onBack: () => void;
   saving: boolean;
 }
@@ -41,7 +42,7 @@ function formatTime12h(time: string): string {
   return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
-// Generate time slots for the scroll picker (every 15 min)
+// Generate time slots for the select dropdowns (every 15 min)
 const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
   const mins = i * 15;
   return {
@@ -59,6 +60,7 @@ export default function DurationStepper({
   subcategory,
   startTime: initialStartTime,
   onSave,
+  onStartNow,
   onBack,
   saving,
 }: DurationStepperProps) {
@@ -69,7 +71,6 @@ export default function DurationStepper({
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [note, setNote] = useState('');
-  const [activeTimePicker, setActiveTimePicker] = useState<'start' | 'end' | null>(null);
 
   const duration = useMemo(() => {
     let diff = timeToMinutes(endTime) - timeToMinutes(startTime);
@@ -95,7 +96,6 @@ export default function DurationStepper({
 
   const handlePresetDuration = (mins: number) => {
     setEndTime(minutesToTime(timeToMinutes(startTime) + mins));
-    setActiveTimePicker(null);
   };
 
   const addTag = () => {
@@ -131,6 +131,39 @@ export default function DurationStepper({
             <Clock className="w-3.5 h-3.5" />
             <span>Time Range</span>
           </div>
+        </div>
+
+        {/* Start / End time select dropdowns */}
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1">
+            <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">Start</label>
+            <select
+              value={startTime}
+              onChange={(e) => handleStartTimeChange(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            >
+              {TIME_SLOTS.map(slot => (
+                <option key={slot.value} value={slot.value}>{slot.label}</option>
+              ))}
+            </select>
+          </div>
+          <ArrowRight className="w-4 h-4 text-gray-300 shrink-0 mt-5" />
+          <div className="flex-1">
+            <label className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">End</label>
+            <select
+              value={endTime}
+              onChange={(e) => handleEndTimeChange(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            >
+              {TIME_SLOTS.map(slot => (
+                <option key={slot.value} value={slot.value}>{slot.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Duration + category badge */}
+        <div className="flex items-center justify-center mb-3">
           <span
             className="text-sm font-bold px-2.5 py-0.5 rounded-full"
             style={{ backgroundColor: `${category.color}18`, color: category.color }}
@@ -139,101 +172,27 @@ export default function DurationStepper({
           </span>
         </div>
 
-        {/* Start / End time buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTimePicker(activeTimePicker === 'start' ? null : 'start')}
-            className={clsx(
-              'flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all',
-              activeTimePicker === 'start'
-                ? 'bg-white shadow-sm'
-                : 'bg-white/60 hover:bg-white',
-            )}
-            style={activeTimePicker === 'start' ? { boxShadow: `0 0 0 2px ${category.color}` } : undefined}
-          >
-            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Start</span>
-            <span className="text-lg font-bold text-gray-800">{formatTime12h(startTime)}</span>
-          </button>
-
-          <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
-
-          <button
-            onClick={() => setActiveTimePicker(activeTimePicker === 'end' ? null : 'end')}
-            className={clsx(
-              'flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all',
-              activeTimePicker === 'end'
-                ? 'bg-white shadow-sm'
-                : 'bg-white/60 hover:bg-white',
-            )}
-            style={activeTimePicker === 'end' ? { boxShadow: `0 0 0 2px ${category.color}` } : undefined}
-          >
-            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">End</span>
-            <span className="text-lg font-bold text-gray-800">{formatTime12h(endTime)}</span>
-          </button>
+        {/* Quick duration presets — always visible */}
+        <div className="mt-3">
+          <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">Quick Duration</p>
+          <div className="flex flex-wrap gap-1.5">
+            {DURATION_PRESETS.map((mins) => (
+              <button
+                key={mins}
+                onClick={() => handlePresetDuration(mins)}
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                  duration === mins
+                    ? 'text-white shadow-sm'
+                    : 'bg-white text-gray-600 hover:bg-gray-100',
+                )}
+                style={duration === mins ? { backgroundColor: category.color } : undefined}
+              >
+                {formatDuration(mins)}
+              </button>
+            ))}
+          </div>
         </div>
-
-        {/* Quick duration presets */}
-        {activeTimePicker === null && (
-          <div className="mt-3">
-            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">Quick Duration</p>
-            <div className="flex flex-wrap gap-1.5">
-              {DURATION_PRESETS.map((mins) => (
-                <button
-                  key={mins}
-                  onClick={() => handlePresetDuration(mins)}
-                  className={clsx(
-                    'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-                    duration === mins
-                      ? 'text-white shadow-sm'
-                      : 'bg-white text-gray-600 hover:bg-gray-100',
-                  )}
-                  style={duration === mins ? { backgroundColor: category.color } : undefined}
-                >
-                  {formatDuration(mins)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Time slot picker */}
-        {activeTimePicker && (
-          <div className="mt-3">
-            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">
-              Select {activeTimePicker === 'start' ? 'Start' : 'End'} Time
-            </p>
-            <div className="grid grid-cols-4 gap-1 max-h-40 overflow-y-auto rounded-xl bg-white p-1.5">
-              {TIME_SLOTS.map((slot) => {
-                const isSelected =
-                  activeTimePicker === 'start'
-                    ? slot.value === startTime
-                    : slot.value === endTime;
-                return (
-                  <button
-                    key={slot.value}
-                    onClick={() => {
-                      if (activeTimePicker === 'start') {
-                        handleStartTimeChange(slot.value);
-                      } else {
-                        handleEndTimeChange(slot.value);
-                      }
-                      setActiveTimePicker(null);
-                    }}
-                    className={clsx(
-                      'py-1.5 rounded-lg text-xs font-medium transition-all',
-                      isSelected
-                        ? 'text-white shadow-sm'
-                        : 'text-gray-600 hover:bg-gray-50',
-                    )}
-                    style={isSelected ? { backgroundColor: category.color } : undefined}
-                  >
-                    {slot.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Tags */}
@@ -275,20 +234,44 @@ export default function DurationStepper({
         className="w-full px-3 py-2 text-sm rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200 placeholder-gray-300 resize-none mb-4"
       />
 
-      {/* Save button */}
-      <button
-        onClick={() => onSave(duration, tags, note, startTime)}
-        disabled={saving}
-        className={clsx(
-          'w-full py-3.5 rounded-2xl text-white font-semibold text-base',
-          'transition-all duration-150 active:scale-[0.98]',
-          'shadow-md hover:shadow-lg',
-          saving && 'opacity-70 cursor-not-allowed',
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        {onStartNow && (
+          <button
+            onClick={() => {
+              const now = new Date();
+              const mins = now.getHours() * 60 + now.getMinutes();
+              const rounded = Math.round(mins / 15) * 15;
+              const nowTime = minutesToTime(rounded);
+              onStartNow(tags, note, nowTime);
+            }}
+            disabled={saving}
+            className={clsx(
+              'flex-1 py-3.5 rounded-2xl text-white font-semibold text-base',
+              'transition-all duration-150 active:scale-[0.98]',
+              'shadow-md hover:shadow-lg flex items-center justify-center gap-2',
+              saving && 'opacity-70 cursor-not-allowed',
+            )}
+            style={{ backgroundColor: '#10B981' }}
+          >
+            <Play className="w-4 h-4" />
+            {saving ? 'Starting...' : 'Start Now'}
+          </button>
         )}
-        style={{ backgroundColor: category.color }}
-      >
-        {saving ? 'Saving...' : `Save ${formatTime12h(startTime)} → ${formatTime12h(endTime)}`}
-      </button>
+        <button
+          onClick={() => onSave(duration, tags, note, startTime)}
+          disabled={saving}
+          className={clsx(
+            'flex-1 py-3.5 rounded-2xl text-white font-semibold text-base',
+            'transition-all duration-150 active:scale-[0.98]',
+            'shadow-md hover:shadow-lg',
+            saving && 'opacity-70 cursor-not-allowed',
+          )}
+          style={{ backgroundColor: category.color }}
+        >
+          {saving ? 'Saving...' : `Save ${formatTime12h(startTime)} \u2192 ${formatTime12h(endTime)}`}
+        </button>
+      </div>
     </div>
   );
 }

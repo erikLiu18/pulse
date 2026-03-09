@@ -33,6 +33,7 @@ export async function initializeDatabase(): Promise<void> {
       duration_minutes INTEGER NOT NULL DEFAULT 15,
       tags JSONB DEFAULT '[]',
       note TEXT,
+      is_active BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -47,5 +48,10 @@ export async function initializeDatabase(): Promise<void> {
       generated_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_insights_profile_dates ON insights(profile_id, start_date, end_date);
+  `);
+
+  // Migration: add is_active column if it doesn't exist (for existing databases)
+  await pool.query(`
+    ALTER TABLE entries ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
   `);
 }

@@ -136,6 +136,30 @@ export default function QuickEntry({ isOpen, onClose, onSaved, entries = [] }: Q
     [selectedSubcategory, activeProfileId, selectedDate, onSaved, onClose],
   );
 
+  const handleStartNow = useCallback(
+    async (tags: string[], note: string, startTime: string) => {
+      if (!selectedSubcategory) return;
+      setSaving(true);
+      try {
+        await api.startEntry({
+          profile_id: activeProfileId,
+          subcategory_id: selectedSubcategory.id,
+          date: selectedDate,
+          start_time: startTime,
+          tags: tags.length > 0 ? tags : undefined,
+          note: note.trim() || undefined,
+        });
+        onSaved();
+        onClose();
+      } catch (err) {
+        console.error('Failed to start entry:', err);
+      } finally {
+        setSaving(false);
+      }
+    },
+    [selectedSubcategory, activeProfileId, selectedDate, onSaved, onClose],
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -193,6 +217,7 @@ export default function QuickEntry({ isOpen, onClose, onSaved, entries = [] }: Q
               subcategory={selectedSubcategory}
               startTime={startTime}
               onSave={handleSave}
+              onStartNow={handleStartNow}
               onBack={() => goToStep(2, 'back')}
               saving={saving}
             />

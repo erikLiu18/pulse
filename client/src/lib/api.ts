@@ -42,6 +42,7 @@ export interface Entry {
   duration_minutes: number;
   tags: string;
   note: string | null;
+  is_active?: boolean;
   created_at: string;
   subcategory_name?: string;
   subcategory_icon?: string;
@@ -75,6 +76,10 @@ export const api = {
   }) => request<Entry>('/entries', { method: 'POST', body: JSON.stringify(data) }),
   updateEntry: (id: number, data: Partial<Entry>) =>
     request<Entry>(`/entries/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  startEntry: (data: { profile_id: number; subcategory_id: number; date: string; start_time: string; tags?: string[]; note?: string }) =>
+    request<Entry>('/entries', { method: 'POST', body: JSON.stringify({ ...data, duration_minutes: 15, is_active: true }) }),
+  finishEntry: (id: number) =>
+    request<Entry>(`/entries/${id}/finish`, { method: 'POST' }),
   deleteEntry: (id: number) =>
     request<void>(`/entries/${id}`, { method: 'DELETE' }),
   getDailyStats: (profileId: number, date: string) =>

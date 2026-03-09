@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
 
 // Create entry
 router.post('/', async (req, res) => {
-  const { profile_id, subcategory_id, date, start_time, duration_minutes, tags, note } = req.body;
+  const { profile_id, subcategory_id, date, start_time, duration_minutes, tags, note, is_active } = req.body;
 
   if (!profile_id || !subcategory_id || !date) {
     res.status(400).json({ error: 'profile_id, subcategory_id, and date required' });
@@ -34,12 +34,34 @@ router.post('/', async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO entries (profile_id, subcategory_id, date, start_time, duration_minutes, tags, note)
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [profile_id, subcategory_id, date, start_time || null, duration_minutes || 15, JSON.stringify(tags || []), note || null]
+    `INSERT INTO entries (profile_id, subcategory_id, date, start_time, duration_minutes, tags, note, is_active)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+    [profile_id, subcategory_id, date, start_time || null, duration_minutes || 15, JSON.stringify(tags || []), note || null, is_active || false]
   );
 
   res.status(201).json(rows[0]);
+});
+
+// Finish an active entry (set is_active=false, finalize duration)
+router.post('/:id/finish', async (req, res) => {
+  const { id } = req.params;
+  const entry = (await pool.query('SELECT * FROM entries WHERE id = $1', [id])).rows[0];
+  if (!entry) { res.status(404).json({ error: 'Entry not found' }); return; }
+
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const [sh, sm] = entry.start_time.split(':').map(Number);
+  const startMinutes = sh * 60 + sm;
+  let duration = currentMinutes - startMinutes;
+  if (duration <= 0) duration += 1440;
+  duration = Math.ceil(duration / 15) * 15; // Round up to 15 min
+  if (duration < 15) duration = 15;
+
+  const { rows } = await pool.query(
+    'UPDATE entries SET is_active = false, duration_minutes = $1 WHERE id = $2 RETURNING *',
+    [duration, id]
+  );
+  res.json(rows[0]);
 });
 
 // Update entry

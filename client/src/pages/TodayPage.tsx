@@ -24,6 +24,14 @@ export default function TodayPage() {
     fetchData();
   }, [fetchData]);
 
+  // Auto-refresh every 60s when there's an active entry
+  useEffect(() => {
+    const hasActive = entries.some((e) => e.is_active);
+    if (!hasActive) return;
+    const interval = setInterval(fetchData, 60_000);
+    return () => clearInterval(interval);
+  }, [entries, fetchData]);
+
   return (
     <div className="flex flex-col pb-24">
       <DateStrip />

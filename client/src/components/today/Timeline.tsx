@@ -1,6 +1,9 @@
-import { X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Square } from 'lucide-react';
 import type { Entry } from '../../lib/api';
 import { api } from '../../lib/api';
+import { useAppStore } from '../../stores/appStore';
+import { format } from 'date-fns';
 
 interface Props {
   entries: Entry[];
@@ -45,6 +48,24 @@ function tint(hex: string, amount = 0.85): string {
 }
 
 export default function Timeline({ entries, onRefresh }: Props) {
+  const selectedDate = useAppStore((s) => s.selectedDate);
+  const isToday = selectedDate === format(new Date(), 'yyyy-MM-dd');
+
+  // Current time state (updates every minute)
+  const [currentMinutes, setCurrentMinutes] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    if (!isToday) return;
+    const interval = setInterval(() => {
+      const now = new Date();
+      setCurrentMinutes(now.getHours() * 60 + now.getMinutes());
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [isToday]);
+
   // Separate scheduled vs unscheduled entries
   const scheduled = entries
     .filter((e) => e.start_time)
@@ -90,8 +111,19 @@ export default function Timeline({ entries, onRefresh }: Props) {
     });
   }
 
+  // Extend range to include current time if today
+  if (isToday) {
+    if (currentMinutes < rangeStartMin) rangeStartMin = Math.floor(currentMinutes / 60) * 60;
+    if (currentMinutes > rangeEndMin) rangeEndMin = Math.ceil((currentMinutes + 30) / 60) * 60;
+  }
+
   const handleDelete = async (id: number) => {
     await api.deleteEntry(id);
+    onRefresh();
+  };
+
+  const handleFinish = async (id: number) => {
+    await api.finishEntry(id);
     onRefresh();
   };
 
@@ -119,17 +151,21 @@ export default function Timeline({ entries, onRefresh }: Props) {
           {/* Entry blocks */}
           {scheduled.map((entry) => {
             const startMin = parseTime(entry.start_time!);
-            const duration = entry.duration_minutes || 15;
+            const isActive = !!entry.is_active;
+            // Active entries extend to current time
+            const duration = isActive
+              ? Math.max(currentMinutes - startMin, 15)
+              : (entry.duration_minutes || 15);
             const top = ((startMin - rangeStartMin) / 15) * PIXELS_PER_15MIN;
             const height = Math.max((duration / 15) * PIXELS_PER_15MIN, PIXELS_PER_15MIN);
             const color = entry.category_color || '#3B82F6';
             const isShort = duration <= 15;
-            const endTime = formatTime(startMin + duration);
+            const endTime = isActive ? 'now' : formatTime(startMin + duration);
 
             return (
               <div
                 key={entry.id}
-                className="absolute group rounded-lg shadow-sm border overflow-hidden cursor-default transition-shadow hover:shadow-md"
+                className={`absolute group rounded-lg shadow-sm border overflow-hidden cursor-default transition-shadow hover:shadow-md ${isActive ? 'ring-2 ring-offset-1 animate-pulse' : ''}`}
                 style={{
                   top,
                   height,
@@ -139,6 +175,7 @@ export default function Timeline({ entries, onRefresh }: Props) {
                   borderColor: tint(color, 0.55),
                   borderLeftWidth: 4,
                   borderLeftColor: color,
+                  ...(isActive ? { ringColor: color } : {}),
                 }}
               >
                 <div className="flex items-start h-full px-2.5 py-1.5 gap-2 min-w-0">
@@ -148,6 +185,11 @@ export default function Timeline({ entries, onRefresh }: Props) {
                       <span className="text-xs font-semibold truncate" style={{ color }}>
                         {entry.subcategory_name || 'Entry'}
                       </span>
+                      {isActive && (
+                        <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                          LIVE
+                        </span>
+                      )}
                       <span className="ml-auto shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: tint(color, 0.65), color }}>
                         {formatDuration(duration)}
                       </span>
@@ -159,17 +201,45 @@ export default function Timeline({ entries, onRefresh }: Props) {
                     )}
                   </div>
 
-                  {/* Delete button */}
-                  <button
-                    onClick={() => handleDelete(entry.id)}
-                    className="shrink-0 p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-                  >
-                    <X size={13} />
-                  </button>
+                  {/* Finish button for active entries */}
+                  {isActive ? (
+                    <button
+                      onClick={() => handleFinish(entry.id)}
+                      className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500 text-white text-[11px] font-semibold hover:bg-red-600 transition-colors"
+                    >
+                      <Square size={10} />
+                      Finish
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(entry.id)}
+                      className="shrink-0 p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
+
+          {/* Current time indicator */}
+          {isToday && currentMinutes >= rangeStartMin && currentMinutes <= rangeEndMin && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                top: ((currentMinutes - rangeStartMin) / 15) * PIXELS_PER_15MIN,
+                left: TIME_LABEL_WIDTH - 4,
+                right: 0,
+                zIndex: 20,
+              }}
+            >
+              <div className="relative flex items-center">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0" />
+                <div className="flex-1 h-[2px] bg-red-500" style={{ marginLeft: -1 }} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
