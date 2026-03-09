@@ -22,6 +22,8 @@ export default function GuidePage() {
   const [newCatColor, setNewCatColor] = useState('#6366f1');
   const [newCatIcon, setNewCatIcon] = useState('');
 
+  const visibleCategories = categories.filter(cat => cat.name !== 'Unlabeled');
+
   async function refreshCategories() {
     const cats = await api.getCategories();
     setCategories(cats);
@@ -60,123 +62,91 @@ export default function GuidePage() {
 
   return (
     <div className="px-4 py-6 pb-24 space-y-8">
-      {/* Section 1: Category Rubric */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Category Rubric</h2>
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">Categories</h2>
         <div className="space-y-3">
-          {categories.map(cat => (
+          {visibleCategories.map(cat => (
             <div
               key={cat.id}
               className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
             >
-              <div className="flex items-start gap-3 p-4" style={{ borderLeft: `4px solid ${cat.color}` }}>
-                <span className="text-2xl flex-shrink-0">{cat.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900">{cat.name}</h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
-                    {categoryDescriptions[cat.name] || 'Custom category'}
-                  </p>
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {cat.subcategories.map(sub => (
-                      <span
-                        key={sub.id}
-                        className="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 rounded-md text-xs text-gray-600"
+              <div className="p-4" style={{ borderLeft: `4px solid ${cat.color}` }}>
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl flex-shrink-0">{cat.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-gray-900">{cat.name}</h3>
+                      <button
+                        onClick={() => handleDeleteCategory(cat)}
+                        className="text-xs text-red-400 hover:text-red-600 transition-colors"
                       >
-                        <span>{sub.icon}</span>
-                        {sub.name}
-                      </span>
-                    ))}
+                        Delete
+                      </button>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {categoryDescriptions[cat.name] || 'Custom category'}
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Section 2: Manage Categories */}
-      <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Manage Categories</h2>
-        <div className="space-y-4">
-          {categories.map(cat => (
-            <div
-              key={cat.id}
-              className="bg-white rounded-xl shadow-sm border border-gray-100 p-4"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <span className="text-base">{cat.icon}</span>
-                  <h3 className="font-medium text-gray-900">{cat.name}</h3>
-                </div>
-                <button
-                  onClick={() => handleDeleteCategory(cat)}
-                  className="text-xs text-red-400 hover:text-red-600 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {cat.subcategories.map(sub => (
-                  <span
-                    key={sub.id}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-full text-sm text-gray-700 group"
-                  >
-                    <span>{sub.icon}</span>
-                    {sub.name}
-                    <button
-                      onClick={() => handleDeleteSubcategory(sub.id, sub.name)}
-                      className="ml-0.5 text-gray-300 hover:text-red-500 transition-colors"
+                <div className="flex flex-wrap gap-1.5 mt-3 ml-9">
+                  {cat.subcategories.map(sub => (
+                    <span
+                      key={sub.id}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700 group"
                     >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
+                      <span>{sub.icon}</span>
+                      {sub.name}
+                      <button
+                        onClick={() => handleDeleteSubcategory(sub.id, sub.name)}
+                        className="ml-0.5 text-gray-300 hover:text-red-500 transition-colors"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
 
-                {addingSubFor === cat.id ? (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      placeholder="Icon"
-                      value={newSubIcon}
-                      onChange={e => setNewSubIcon(e.target.value)}
-                      className="w-10 px-1.5 py-1 border border-gray-200 rounded-md text-sm text-center"
-                      autoFocus
-                    />
-                    <input
-                      type="text"
-                      placeholder="Name"
-                      value={newSubName}
-                      onChange={e => setNewSubName(e.target.value)}
-                      className="w-24 px-2 py-1 border border-gray-200 rounded-md text-sm"
-                      onKeyDown={e => e.key === 'Enter' && handleAddSubcategory(cat.id)}
-                    />
+                  {addingSubFor === cat.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="Icon"
+                        value={newSubIcon}
+                        onChange={e => setNewSubIcon(e.target.value)}
+                        className="w-10 px-1.5 py-1 border border-gray-200 rounded-md text-sm text-center"
+                        autoFocus
+                      />
+                      <input
+                        type="text"
+                        placeholder="Name"
+                        value={newSubName}
+                        onChange={e => setNewSubName(e.target.value)}
+                        className="w-24 px-2 py-1 border border-gray-200 rounded-md text-sm"
+                        onKeyDown={e => e.key === 'Enter' && handleAddSubcategory(cat.id)}
+                      />
+                      <button
+                        onClick={() => handleAddSubcategory(cat.id)}
+                        className="px-2 py-1 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => { setAddingSubFor(null); setNewSubName(''); setNewSubIcon(''); }}
+                        className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      onClick={() => handleAddSubcategory(cat.id)}
-                      className="px-2 py-1 bg-blue-500 text-white text-xs rounded-md hover:bg-blue-600"
+                      onClick={() => setAddingSubFor(cat.id)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-dashed border-gray-300 rounded-full text-xs text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
                     >
+                      <Plus size={12} />
                       Add
                     </button>
-                    <button
-                      onClick={() => { setAddingSubFor(null); setNewSubName(''); setNewSubIcon(''); }}
-                      className="px-2 py-1 text-gray-400 text-xs hover:text-gray-600"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setAddingSubFor(cat.id)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 border border-dashed border-gray-300 rounded-full text-sm text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
-                  >
-                    <Plus size={12} />
-                    Add
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           ))}
