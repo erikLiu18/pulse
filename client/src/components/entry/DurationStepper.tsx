@@ -146,10 +146,10 @@ export default function DurationStepper({
             className={clsx(
               'flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all',
               activeTimePicker === 'start'
-                ? 'bg-white shadow-sm ring-2'
+                ? 'bg-white shadow-sm'
                 : 'bg-white/60 hover:bg-white',
             )}
-            style={activeTimePicker === 'start' ? { ringColor: category.color } : undefined}
+            style={activeTimePicker === 'start' ? { boxShadow: `0 0 0 2px ${category.color}` } : undefined}
           >
             <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Start</span>
             <span className="text-lg font-bold text-gray-800">{formatTime12h(startTime)}</span>
@@ -162,10 +162,10 @@ export default function DurationStepper({
             className={clsx(
               'flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all',
               activeTimePicker === 'end'
-                ? 'bg-white shadow-sm ring-2'
+                ? 'bg-white shadow-sm'
                 : 'bg-white/60 hover:bg-white',
             )}
-            style={activeTimePicker === 'end' ? { ringColor: category.color } : undefined}
+            style={activeTimePicker === 'end' ? { boxShadow: `0 0 0 2px ${category.color}` } : undefined}
           >
             <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">End</span>
             <span className="text-lg font-bold text-gray-800">{formatTime12h(endTime)}</span>
