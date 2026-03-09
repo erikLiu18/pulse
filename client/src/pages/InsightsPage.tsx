@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { startOfWeek, endOfWeek, format, addWeeks, subWeeks, eachDayOfInterval } from 'date-fns';
 import { ChevronLeft, ChevronRight, BarChart3, Sparkles } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
@@ -6,7 +6,7 @@ import { api } from '../lib/api';
 
 function renderMarkdown(content: string) {
   const lines = content.split('\n');
-  const elements: JSX.Element[] = [];
+  const elements: React.ReactElement[] = [];
   let key = 0;
 
   for (const line of lines) {
