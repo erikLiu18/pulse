@@ -386,12 +386,19 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
                       <span className="text-[11px] font-semibold truncate" style={{ color }}>
                         {entry.subcategory_name || ''}
                       </span>
-                      {isActive && (
+                      {isActive ? (
                         <button
                           onClick={(e) => { e.stopPropagation(); handleFinish(entry.id); }}
                           className="ml-auto shrink-0 flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500 text-white text-[10px] font-semibold hover:bg-red-600 transition-colors"
                         >
                           <Square size={8} /> Finish
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(entry.id); }}
+                          className="ml-auto shrink-0 p-0.5 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
+                        >
+                          <X size={10} />
                         </button>
                       )}
                     </div>
@@ -450,6 +457,18 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
                     Add parallel task at this time
                   </button>
                 )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const id = selectedEntry.id;
+                    setSelectedEntry(null);
+                    handleDelete(id);
+                  }}
+                  className="mt-1 w-full text-xs text-red-400 font-medium py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-1"
+                >
+                  <X size={12} />
+                  Delete entry
+                </button>
               </div>
             </>
           )}
