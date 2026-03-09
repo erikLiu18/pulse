@@ -109,12 +109,10 @@ export default function AnalyticsPage() {
         setTotals(data.totals);
         setProfile1Totals([]);
         setProfile2Totals([]);
-        if (data.taskMinutes !== undefined) {
-          setTaskMinutes(data.taskMinutes);
-          setWallClockMinutes(data.wallClockMinutes);
-          setParallelMinutes(data.parallelMinutes);
-          setMultiplier(data.multiplier);
-        }
+        setTaskMinutes(data.taskMinutes ?? 0);
+        setWallClockMinutes(data.wallClockMinutes ?? 0);
+        setParallelMinutes(data.parallelMinutes ?? 0);
+        setMultiplier(data.multiplier ?? 1);
       }
     } catch (err) {
       console.error('Failed to fetch weekly stats:', err);
