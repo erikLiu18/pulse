@@ -81,10 +81,12 @@ export const api = {
     request<DailyStat[]>(`/stats/daily?profile_id=${profileId}&date=${date}`),
   getWeeklyStats: (profileId: number, startDate: string, endDate: string) =>
     request<any>(`/stats/weekly?profile_id=${profileId}&start_date=${startDate}&end_date=${endDate}`),
-  generateInsight: (profileId: number, startDate: string, endDate: string) =>
+  getInsight: (profileId: number, startDate: string, endDate: string) =>
+    request<{ insight: string | null; generatedAt?: string }>(`/insights/weekly?profile_id=${profileId}&start_date=${startDate}&end_date=${endDate}`),
+  generateInsight: (profileId: number, startDate: string, endDate: string, content: string) =>
     request<{ insight: string; generatedAt: string }>('/insights/weekly', {
       method: 'POST',
-      body: JSON.stringify({ profile_id: profileId, start_date: startDate, end_date: endDate }),
+      body: JSON.stringify({ profile_id: profileId, start_date: startDate, end_date: endDate, content }),
     }),
   createCategory: (data: { name: string; color: string; icon: string }) =>
     request<Category>('/categories', { method: 'POST', body: JSON.stringify(data) }),

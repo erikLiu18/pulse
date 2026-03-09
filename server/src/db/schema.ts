@@ -37,5 +37,15 @@ export async function initializeDatabase(): Promise<void> {
     );
 
     CREATE INDEX IF NOT EXISTS idx_entries_profile_date ON entries(profile_id, date);
+
+    CREATE TABLE IF NOT EXISTS insights (
+      id SERIAL PRIMARY KEY,
+      profile_id INTEGER NOT NULL REFERENCES profiles(id),
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      content TEXT NOT NULL,
+      generated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_insights_profile_dates ON insights(profile_id, start_date, end_date);
   `);
 }
