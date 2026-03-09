@@ -34,20 +34,32 @@ interface SubBreakdown {
 
 export default function CategoryLeaderboard({ totals, profileId, startDate, endDate }: CategoryLeaderboardProps) {
   const { categories, profiles } = useAppStore();
-  const [expandedCat, setExpandedCat] = useState<number | null>(null);
-  const [subBreakdown, setSubBreakdown] = useState<SubBreakdown[]>([]);
+  const [expandedCats, setExpandedCats] = useState<Set<number>>(new Set());
+  const [subBreakdowns, setSubBreakdowns] = useState<Map<number, SubBreakdown[]>>(new Map());
 
   const sorted = [...totals]
-    .filter(c => c.name !== 'Unlabeled')
     .sort((a, b) => b.total_minutes - a.total_minutes);
   const grandTotal = sorted.reduce((sum, c) => sum + c.total_minutes, 0);
 
-  // Fetch subcategory breakdown when a category is expanded
-  useEffect(() => {
-    if (expandedCat === null) { setSubBreakdown([]); return; }
+  const toggleCat = (catId: number) => {
+    setExpandedCats(prev => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId);
+      else next.add(catId);
+      return next;
+    });
+  };
 
-    async function fetchSubs() {
-      const cat = categories.find(c => c.id === expandedCat);
+  // Fetch subcategory breakdown for newly expanded categories
+  useEffect(() => {
+    for (const catId of expandedCats) {
+      if (subBreakdowns.has(catId)) continue; // already fetched
+      fetchSubsForCategory(catId);
+    }
+  }, [expandedCats]);
+
+  async function fetchSubsForCategory(catId: number) {
+      const cat = categories.find(c => c.id === catId);
       if (!cat) return;
       const subIds = new Set(cat.subcategories.map(s => s.id));
 
@@ -84,11 +96,8 @@ export default function CategoryLeaderboard({ totals, profileId, startDate, endD
         }
       }
 
-      setSubBreakdown(Array.from(subMap.values()).sort((a, b) => b.minutes - a.minutes));
-    }
-
-    fetchSubs();
-  }, [expandedCat, categories, profileId, profiles, startDate, endDate]);
+      setSubBreakdowns(prev => new Map(prev).set(catId, Array.from(subMap.values()).sort((a, b) => b.minutes - a.minutes)));
+  }
 
   if (sorted.length === 0 || grandTotal === 0) {
     return (
@@ -107,15 +116,16 @@ export default function CategoryLeaderboard({ totals, profileId, startDate, endD
         <div className="space-y-2">
           {sorted.map((cat) => {
             const pct = grandTotal > 0 ? (cat.total_minutes / grandTotal) * 100 : 0;
-            const isExpanded = expandedCat === cat.id;
+            const isExpanded = expandedCats.has(cat.id);
             const catDef = categories.find(c => c.id === cat.id);
             const hasSubcategories = catDef && catDef.subcategories.length > 0;
+            const subs = subBreakdowns.get(cat.id) || [];
 
             return (
               <div key={cat.id}>
                 <button
                   className="w-full text-left"
-                  onClick={() => hasSubcategories && setExpandedCat(isExpanded ? null : cat.id)}
+                  onClick={() => hasSubcategories && toggleCat(cat.id)}
                 >
                   <div className="flex items-center gap-2.5 mb-1.5">
                     <div
@@ -148,9 +158,9 @@ export default function CategoryLeaderboard({ totals, profileId, startDate, endD
                 </button>
 
                 {/* Expanded subcategory breakdown */}
-                {isExpanded && subBreakdown.length > 0 && (
+                {isExpanded && subs.length > 0 && (
                   <div className="ml-8 mr-2 mt-2 mb-1 space-y-1.5">
-                    {subBreakdown.map((sub, i) => {
+                    {subs.map((sub, i) => {
                       const subPct = cat.total_minutes > 0 ? (sub.minutes / cat.total_minutes) * 100 : 0;
                       return (
                         <div key={i}>
@@ -175,7 +185,7 @@ export default function CategoryLeaderboard({ totals, profileId, startDate, endD
                     })}
                   </div>
                 )}
-                {isExpanded && subBreakdown.length === 0 && (
+                {isExpanded && subs.length === 0 && (
                   <div className="ml-8 mt-1 mb-1">
                     <span className="text-[10px] text-gray-300">Loading...</span>
                   </div>
