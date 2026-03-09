@@ -73,7 +73,7 @@ export const api = {
     duration_minutes?: number;
     tags?: string[];
     note?: string;
-  }) => request<Entry>('/entries', { method: 'POST', body: JSON.stringify(data) }),
+  }) => request<any>('/entries', { method: 'POST', body: JSON.stringify(data) }),
   updateEntry: (id: number, data: Partial<Entry>) =>
     request<Entry>(`/entries/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   startEntry: (data: { profile_id: number; subcategory_id: number; date: string; start_time: string; tags?: string[]; note?: string }) =>

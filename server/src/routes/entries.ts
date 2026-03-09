@@ -33,6 +33,37 @@ router.post('/', async (req, res) => {
     return;
   }
 
+  // Check for cross-midnight entries
+  const startMins = start_time ? (() => { const [h, m] = start_time.split(':').map(Number); return h * 60 + m; })() : 0;
+  const endMins = startMins + (duration_minutes || 15);
+
+  if (endMins > 1440 && start_time) {
+    // Crosses midnight — split into two entries
+    const minutesBeforeMidnight = 1440 - startMins;
+    const minutesAfterMidnight = endMins - 1440;
+
+    // Entry 1: today, from start_time to midnight
+    const { rows: rows1 } = await pool.query(
+      `INSERT INTO entries (profile_id, subcategory_id, date, start_time, duration_minutes, tags, note, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [profile_id, subcategory_id, date, start_time, minutesBeforeMidnight, JSON.stringify(tags || []), note || null, false]
+    );
+
+    // Entry 2: next day, from 00:00 to remaining duration
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const nextDateStr = nextDate.toISOString().slice(0, 10);
+
+    const { rows: rows2 } = await pool.query(
+      `INSERT INTO entries (profile_id, subcategory_id, date, start_time, duration_minutes, tags, note, is_active)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [profile_id, subcategory_id, nextDateStr, '00:00', minutesAfterMidnight, JSON.stringify(tags || []), note ? `${note} (continued)` : '(continued from previous day)', false]
+    );
+
+    res.status(201).json({ entries: [rows1[0], rows2[0]], split: true });
+    return;
+  }
+
   const { rows } = await pool.query(
     `INSERT INTO entries (profile_id, subcategory_id, date, start_time, duration_minutes, tags, note, is_active)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,

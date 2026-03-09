@@ -53,7 +53,7 @@ const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
 });
 
 // Quick duration presets
-const DURATION_PRESETS = [15, 30, 45, 60, 90, 120, 180, 240];
+const DURATION_PRESETS = [15, 30, 45, 60, 90, 120, 180, 240, 360, 480];
 
 export default function DurationStepper({
   category,
@@ -170,6 +170,9 @@ export default function DurationStepper({
           >
             {formatDuration(duration)}
           </span>
+          {timeToMinutes(endTime) < timeToMinutes(startTime) && (
+            <span className="text-[10px] text-amber-500 font-medium ml-1">↪ next day</span>
+          )}
         </div>
 
         {/* Quick duration presets — always visible */}
@@ -269,7 +272,7 @@ export default function DurationStepper({
           )}
           style={{ backgroundColor: category.color }}
         >
-          {saving ? 'Saving...' : `Save ${formatTime12h(startTime)} \u2192 ${formatTime12h(endTime)}`}
+          {saving ? 'Saving...' : `Save ${formatTime12h(startTime)} \u2192 ${formatTime12h(endTime)}${timeToMinutes(endTime) < timeToMinutes(startTime) ? ' +1d' : ''}`}
         </button>
       </div>
     </div>
