@@ -21,6 +21,7 @@ insertCategory.run(2, 'People',       '#FB7185', '❤️', 2);
 insertCategory.run(3, 'Growth',       '#10B981', '🌱', 3);
 insertCategory.run(4, 'Vital',        '#F59E0B', '⚡', 4);
 insertCategory.run(5, 'Leisure',      '#A78BFA', '🎮', 5);
+insertCategory.run(6, 'Unlabeled',   '#9CA3AF', '❓', 6);
 
 // Seed subcategories
 const insertSub = db.prepare('INSERT INTO subcategories (id, category_id, name, icon) VALUES (?, ?, ?, ?)');
@@ -57,6 +58,8 @@ insertSub.run(25, 5, 'TV/Movies',         '🎬');
 insertSub.run(26, 5, 'Music',             '🎵');
 insertSub.run(27, 5, 'Outdoors',          '🏕️');
 insertSub.run(28, 5, 'Hobbies',           '🎨');
+// Unlabeled
+insertSub.run(29, 6, 'Untracked',          '❓');
 
 // Seed sample entries for today and yesterday
 const today = new Date().toISOString().slice(0, 10);

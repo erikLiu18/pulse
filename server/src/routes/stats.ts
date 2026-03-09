@@ -21,7 +21,18 @@ router.get('/daily', (req, res) => {
     ORDER BY c.sort_order
   `).all(profile_id, date);
 
-  res.json(stats);
+  // Calculate unlabeled time (24h = 1440 min minus tracked)
+  const tracked = (stats as any[]).reduce((sum: number, s: any) => sum + s.total_minutes, 0);
+  const unlabeled = Math.max(0, 1440 - tracked);
+  // Add unlabeled to the stats array (find the Unlabeled category or append it)
+  const result = stats as any[];
+  const unlabeledCat = result.find((s: any) => s.name === 'Unlabeled');
+  if (unlabeledCat) {
+    unlabeledCat.total_minutes = unlabeled;
+  } else {
+    result.push({ id: 6, name: 'Unlabeled', color: '#9CA3AF', icon: '❓', total_minutes: unlabeled });
+  }
+  res.json(result);
 });
 
 // Weekly breakdown by category
