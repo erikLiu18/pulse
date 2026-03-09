@@ -100,6 +100,9 @@ router.post('/:id/finish', async (req, res) => {
   let duration = endMinutes - startMinutes;
   if (duration <= 0) duration += 1440;
   if (duration < 15) duration = 15;
+  if (duration > 1440) duration = 1440; // Cap at 24h
+
+  console.log(`Finishing entry ${id}: start=${entry.start_time} end_time=${end_time} endMins=${endMinutes} duration=${duration}`);
 
   const { rows } = await pool.query(
     'UPDATE entries SET is_active = false, duration_minutes = $1 WHERE id = $2 RETURNING *',
