@@ -1,53 +1,81 @@
-import { useState, useCallback } from 'react';
-import { startOfWeek, endOfWeek, format, addWeeks, subWeeks } from 'date-fns';
-import { Sparkles, ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { startOfWeek, endOfWeek, format, addWeeks, subWeeks, eachDayOfInterval } from 'date-fns';
+import { Terminal, ChevronLeft, ChevronRight, Copy, Check, BarChart3 } from 'lucide-react';
 import { useAppStore } from '../stores/appStore';
 import { api } from '../lib/api';
-import InsightCard from '../components/insights/InsightCard';
-
-interface CachedInsight {
-  key: string;
-  insight: string;
-  generatedAt: string;
-}
 
 export default function InsightsPage() {
   const { activeProfileId, profiles } = useAppStore();
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 }),
   );
+  const [copied, setCopied] = useState(false);
+  const [weeklyData, setWeeklyData] = useState<{ daily: any[]; totals: any[] } | null>(null);
+  const [entryCount, setEntryCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [cache, setCache] = useState<Map<string, CachedInsight>>(new Map());
 
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
   const startDate = format(weekStart, 'yyyy-MM-dd');
   const endDate = format(weekEnd, 'yyyy-MM-dd');
-  const cacheKey = `${activeProfileId}-${startDate}`;
-
-  const cachedResult = cache.get(cacheKey);
 
   const activeProfile = profiles.find((p) => p.id === activeProfileId);
-
-  const handleGenerate = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await api.generateInsight(activeProfileId, startDate, endDate);
-      const entry: CachedInsight = {
-        key: cacheKey,
-        insight: result.insight,
-        generatedAt: result.generatedAt,
-      };
-      setCache((prev) => new Map(prev).set(cacheKey, entry));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate insight');
-    } finally {
-      setLoading(false);
-    }
-  }, [activeProfileId, startDate, endDate, cacheKey]);
-
   const weekLabel = format(weekStart, 'MMM d') + ' – ' + format(weekEnd, 'MMM d');
+
+  // Fetch weekly stats
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const stats = await api.getWeeklyStats(activeProfileId, startDate, endDate);
+        if (!cancelled) setWeeklyData(stats);
+
+        // Count entries for each day
+        const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+        let total = 0;
+        for (const day of days) {
+          const entries = await api.getEntries(activeProfileId, format(day, 'yyyy-MM-dd'));
+          if (!cancelled) total += entries.length;
+        }
+        if (!cancelled) setEntryCount(total);
+      } catch {
+        if (!cancelled) {
+          setWeeklyData(null);
+          setEntryCount(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchData();
+    return () => { cancelled = true; };
+  }, [activeProfileId, startDate, endDate]);
+
+  const totalHours = useMemo(() => {
+    if (!weeklyData?.totals) return 0;
+    const mins = weeklyData.totals.reduce((sum: number, t: any) => sum + t.total_minutes, 0);
+    return +(mins / 60).toFixed(1);
+  }, [weeklyData]);
+
+  const topCategory = useMemo(() => {
+    if (!weeklyData?.totals) return null;
+    const filtered = weeklyData.totals.filter((t: any) => t.total_minutes > 0 && t.name !== 'Unlabeled');
+    return filtered.length > 0 ? filtered[0] : null;
+  }, [weeklyData]);
+
+  const daysTracked = useMemo(() => {
+    if (!weeklyData?.daily) return 0;
+    const uniqueDays = new Set(weeklyData.daily.map((d: any) => d.date));
+    return uniqueDays.size;
+  }, [weeklyData]);
+
+  const apiUrl = `http://localhost:3001/api/stats/weekly?profile_id=${activeProfileId}&start_date=${startDate}&end_date=${endDate}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(apiUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="flex flex-col pb-24">
@@ -81,72 +109,88 @@ export default function InsightsPage() {
         </div>
       )}
 
-      {/* Content area */}
       <div className="px-4 space-y-4">
-        {loading ? (
-          /* Loading state */
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="flex">
-              <div className="w-1 shrink-0 bg-gradient-to-b from-blue-300 to-purple-300 animate-pulse" />
-              <div className="flex-1 p-5 space-y-3 animate-pulse">
-                <div className="h-4 w-48 bg-gray-200 rounded" />
-                <div className="h-3 w-full bg-gray-100 rounded" />
-                <div className="h-3 w-5/6 bg-gray-100 rounded" />
-                <div className="h-3 w-4/6 bg-gray-100 rounded" />
-                <div className="h-4 w-40 bg-gray-200 rounded mt-4" />
-                <div className="h-3 w-full bg-gray-100 rounded" />
-                <div className="h-3 w-3/4 bg-gray-100 rounded" />
+        {/* Info card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="flex">
+            <div className="w-1 shrink-0 bg-gradient-to-b from-emerald-500 to-teal-500" />
+            <div className="flex-1 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
+                  <Terminal size={16} className="text-emerald-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 text-sm">CLI-Powered Insights</h3>
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed mb-2">
+                Weekly insights are generated through your Claude Code sessions.
+              </p>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                Ask Claude: <span className="font-medium text-gray-700">"Analyze my Pulse data for this week"</span> and it will pull your time data and give you personalized insights.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Weekly stats summary */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={16} className="text-blue-500" />
+            <h3 className="font-semibold text-gray-900 text-sm">This Week's Data</h3>
+          </div>
+
+          {loading ? (
+            <div className="space-y-3 animate-pulse">
+              <div className="h-4 w-32 bg-gray-100 rounded" />
+              <div className="h-4 w-48 bg-gray-100 rounded" />
+              <div className="h-4 w-40 bg-gray-100 rounded" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-gray-900">{entryCount}</p>
+                <p className="text-xs text-gray-500">Entries</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-gray-900">{totalHours}h</p>
+                <p className="text-xs text-gray-500">Tracked</p>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 text-center">
+                <p className="text-lg font-bold text-gray-900">{daysTracked}</p>
+                <p className="text-xs text-gray-500">Days</p>
               </div>
             </div>
-            <div className="flex items-center justify-center gap-2 py-3 border-t border-gray-50">
-              <Loader2 size={14} className="text-blue-500 animate-spin" />
-              <span className="text-xs text-gray-500">Analyzing your time patterns...</span>
+          )}
+
+          {!loading && topCategory && (
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500">
+                Top category: <span className="font-medium text-gray-700">{topCategory.icon} {topCategory.name}</span>
+                <span className="text-gray-400"> — {+(topCategory.total_minutes / 60).toFixed(1)}h</span>
+              </p>
             </div>
-          </div>
-        ) : error ? (
-          /* Error state */
-          <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-6 text-center">
-            <AlertCircle size={32} className="text-red-400 mx-auto mb-3" />
-            <p className="text-sm text-gray-700 mb-1">Something went wrong</p>
-            <p className="text-xs text-gray-500 mb-4">{error}</p>
+          )}
+        </div>
+
+        {/* API URL for Claude */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-900 text-sm mb-2">Data Export</h3>
+          <p className="text-xs text-gray-500 mb-3">API endpoint for this week's data:</p>
+          <div className="flex items-stretch gap-2">
+            <code className="flex-1 text-xs bg-gray-50 text-gray-600 rounded-lg px-3 py-2 break-all leading-relaxed border border-gray-100">
+              {apiUrl}
+            </code>
             <button
-              onClick={handleGenerate}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 text-sm font-medium text-gray-700 hover:bg-gray-200 active:bg-gray-300 transition-colors"
+              onClick={handleCopy}
+              className="shrink-0 flex items-center justify-center w-10 rounded-lg bg-gray-50 border border-gray-100 hover:bg-gray-100 active:bg-gray-200 transition-colors"
             >
-              Try again
+              {copied ? (
+                <Check size={14} className="text-emerald-500" />
+              ) : (
+                <Copy size={14} className="text-gray-400" />
+              )}
             </button>
           </div>
-        ) : cachedResult ? (
-          /* Insight result */
-          <>
-            <InsightCard insight={cachedResult.insight} generatedAt={cachedResult.generatedAt} />
-            <button
-              onClick={handleGenerate}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm text-gray-500 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-            >
-              <Sparkles size={14} />
-              Regenerate
-            </button>
-          </>
-        ) : (
-          /* Empty state — first generation */
-          <div className="flex flex-col items-center pt-8">
-            <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center mb-5">
-              <Sparkles size={28} className="text-blue-500" />
-            </div>
-            <p className="text-sm text-gray-700 font-medium mb-1">Weekly Time Insight</p>
-            <p className="text-xs text-gray-500 text-center mb-6 max-w-[240px]">
-              Get an AI-powered summary of how you spent your time this week
-            </p>
-            <button
-              onClick={handleGenerate}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-blue-500 text-white text-sm font-semibold shadow-sm hover:bg-blue-600 active:bg-blue-700 transition-colors"
-            >
-              <Sparkles size={16} />
-              Generate Insight
-            </button>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
