@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ChevronLeft, Minus, Plus, X, Clock } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ChevronLeft, X, Clock, ArrowRight } from 'lucide-react';
 import type { Category, Subcategory } from '../../lib/api';
 import clsx from 'clsx';
 
@@ -13,20 +13,46 @@ interface DurationStepperProps {
 }
 
 function formatDuration(mins: number): string {
-  if (mins < 60) return `${mins} min`;
+  if (mins < 60) return `${mins}m`;
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-/** Add minutes to an "HH:mm" string and return a new "HH:mm" string. */
-function addMinutes(time: string, mins: number): string {
+/** Parse "HH:mm" to total minutes from midnight */
+function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
-  const total = h * 60 + m + mins;
-  const hh = String(Math.floor(total / 60) % 24).padStart(2, '0');
-  const mm = String(total % 60).padStart(2, '0');
+  return h * 60 + m;
+}
+
+/** Convert total minutes from midnight to "HH:mm" */
+function minutesToTime(mins: number): string {
+  const clamped = ((mins % 1440) + 1440) % 1440;
+  const hh = String(Math.floor(clamped / 60)).padStart(2, '0');
+  const mm = String(clamped % 60).padStart(2, '0');
   return `${hh}:${mm}`;
 }
+
+/** Format "HH:mm" for display as "9:00 AM" style */
+function formatTime12h(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+// Generate time slots for the scroll picker (every 15 min)
+const TIME_SLOTS = Array.from({ length: 96 }, (_, i) => {
+  const mins = i * 15;
+  return {
+    value: minutesToTime(mins),
+    label: formatTime12h(minutesToTime(mins)),
+    minutes: mins,
+  };
+});
+
+// Quick duration presets
+const DURATION_PRESETS = [15, 30, 45, 60, 90, 120, 180, 240];
 
 export default function DurationStepper({
   category,
@@ -36,17 +62,41 @@ export default function DurationStepper({
   onBack,
   saving,
 }: DurationStepperProps) {
-  const [duration, setDuration] = useState(30);
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [endTime, setEndTime] = useState(() =>
+    minutesToTime(timeToMinutes(initialStartTime) + 30),
+  );
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [note, setNote] = useState('');
-  const [startTime, setStartTime] = useState(initialStartTime);
-  const [editingTime, setEditingTime] = useState(false);
+  const [activeTimePicker, setActiveTimePicker] = useState<'start' | 'end' | null>(null);
 
-  const endTime = addMinutes(startTime, duration);
+  const duration = useMemo(() => {
+    let diff = timeToMinutes(endTime) - timeToMinutes(startTime);
+    if (diff <= 0) diff += 1440; // crosses midnight
+    return diff;
+  }, [startTime, endTime]);
 
-  const decrement = () => setDuration((d) => Math.max(15, d - 15));
-  const increment = () => setDuration((d) => Math.min(480, d + 15));
+  const handleStartTimeChange = (time: string) => {
+    setStartTime(time);
+    // Auto-adjust end time to keep at least 15 min
+    const startMins = timeToMinutes(time);
+    const endMins = timeToMinutes(endTime);
+    let diff = endMins - startMins;
+    if (diff <= 0) diff += 1440;
+    if (diff < 15) {
+      setEndTime(minutesToTime(startMins + 30));
+    }
+  };
+
+  const handleEndTimeChange = (time: string) => {
+    setEndTime(time);
+  };
+
+  const handlePresetDuration = (mins: number) => {
+    setEndTime(minutesToTime(timeToMinutes(startTime) + mins));
+    setActiveTimePicker(null);
+  };
 
   const addTag = () => {
     const t = tagInput.trim();
@@ -63,7 +113,7 @@ export default function DurationStepper({
   return (
     <div className="px-4 pb-4 animate-slide-in">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-4">
         <button
           onClick={onBack}
           className="p-1.5 rounded-full hover:bg-gray-100 transition-colors"
@@ -74,63 +124,115 @@ export default function DurationStepper({
         <span className="font-semibold text-gray-700">{subcategory.name}</span>
       </div>
 
-      {/* Duration stepper */}
-      <div className="flex items-center justify-center gap-6 mb-2">
-        <button
-          onClick={decrement}
-          disabled={duration <= 15}
-          className={clsx(
-            'w-11 h-11 rounded-full flex items-center justify-center',
-            'transition-all duration-150 active:scale-90',
-            duration <= 15 ? 'bg-gray-100 text-gray-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-          )}
-        >
-          <Minus className="w-5 h-5" />
-        </button>
-
-        <span
-          className="text-4xl font-bold min-w-[120px] text-center"
-          style={{ color: category.color }}
-        >
-          {formatDuration(duration)}
-        </span>
-
-        <button
-          onClick={increment}
-          disabled={duration >= 480}
-          className={clsx(
-            'w-11 h-11 rounded-full flex items-center justify-center',
-            'transition-all duration-150 active:scale-90',
-            duration >= 480 ? 'bg-gray-100 text-gray-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200',
-          )}
-        >
-          <Plus className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Time range display */}
-      <div className="flex items-center justify-center gap-2 mb-6">
-        <Clock className="w-3.5 h-3.5 text-gray-400" />
-        {editingTime ? (
-          <div className="flex items-center gap-1.5">
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              onBlur={() => setEditingTime(false)}
-              autoFocus
-              className="text-sm font-medium text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-gray-200 w-24"
-            />
-            <span className="text-sm text-gray-400">-</span>
-            <span className="text-sm font-medium text-gray-500">{endTime}</span>
+      {/* Time range selector */}
+      <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Time Range</span>
           </div>
-        ) : (
-          <button
-            onClick={() => setEditingTime(true)}
-            className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+          <span
+            className="text-sm font-bold px-2.5 py-0.5 rounded-full"
+            style={{ backgroundColor: `${category.color}18`, color: category.color }}
           >
-            {startTime} - {endTime}
+            {formatDuration(duration)}
+          </span>
+        </div>
+
+        {/* Start / End time buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setActiveTimePicker(activeTimePicker === 'start' ? null : 'start')}
+            className={clsx(
+              'flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all',
+              activeTimePicker === 'start'
+                ? 'bg-white shadow-sm ring-2'
+                : 'bg-white/60 hover:bg-white',
+            )}
+            style={activeTimePicker === 'start' ? { ringColor: category.color } : undefined}
+          >
+            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Start</span>
+            <span className="text-lg font-bold text-gray-800">{formatTime12h(startTime)}</span>
           </button>
+
+          <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
+
+          <button
+            onClick={() => setActiveTimePicker(activeTimePicker === 'end' ? null : 'end')}
+            className={clsx(
+              'flex-1 flex flex-col items-center py-2.5 rounded-xl transition-all',
+              activeTimePicker === 'end'
+                ? 'bg-white shadow-sm ring-2'
+                : 'bg-white/60 hover:bg-white',
+            )}
+            style={activeTimePicker === 'end' ? { ringColor: category.color } : undefined}
+          >
+            <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">End</span>
+            <span className="text-lg font-bold text-gray-800">{formatTime12h(endTime)}</span>
+          </button>
+        </div>
+
+        {/* Quick duration presets */}
+        {activeTimePicker === null && (
+          <div className="mt-3">
+            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">Quick Duration</p>
+            <div className="flex flex-wrap gap-1.5">
+              {DURATION_PRESETS.map((mins) => (
+                <button
+                  key={mins}
+                  onClick={() => handlePresetDuration(mins)}
+                  className={clsx(
+                    'px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+                    duration === mins
+                      ? 'text-white shadow-sm'
+                      : 'bg-white text-gray-600 hover:bg-gray-100',
+                  )}
+                  style={duration === mins ? { backgroundColor: category.color } : undefined}
+                >
+                  {formatDuration(mins)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Time slot picker */}
+        {activeTimePicker && (
+          <div className="mt-3">
+            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-2">
+              Select {activeTimePicker === 'start' ? 'Start' : 'End'} Time
+            </p>
+            <div className="grid grid-cols-4 gap-1 max-h-40 overflow-y-auto rounded-xl bg-white p-1.5">
+              {TIME_SLOTS.map((slot) => {
+                const isSelected =
+                  activeTimePicker === 'start'
+                    ? slot.value === startTime
+                    : slot.value === endTime;
+                return (
+                  <button
+                    key={slot.value}
+                    onClick={() => {
+                      if (activeTimePicker === 'start') {
+                        handleStartTimeChange(slot.value);
+                      } else {
+                        handleEndTimeChange(slot.value);
+                      }
+                      setActiveTimePicker(null);
+                    }}
+                    className={clsx(
+                      'py-1.5 rounded-lg text-xs font-medium transition-all',
+                      isSelected
+                        ? 'text-white shadow-sm'
+                        : 'text-gray-600 hover:bg-gray-50',
+                    )}
+                    style={isSelected ? { backgroundColor: category.color } : undefined}
+                  >
+                    {slot.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
       </div>
 
@@ -185,7 +287,7 @@ export default function DurationStepper({
         )}
         style={{ backgroundColor: category.color }}
       >
-        {saving ? 'Saving...' : 'Save Entry'}
+        {saving ? 'Saving...' : `Save ${formatTime12h(startTime)} → ${formatTime12h(endTime)}`}
       </button>
     </div>
   );
