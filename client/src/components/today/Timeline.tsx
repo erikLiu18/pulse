@@ -48,10 +48,15 @@ function assignLanes(entries: Entry[]): LaneEntry[] {
     entry: e,
     start: parseTime(e.start_time!),
     end: parseTime(e.start_time!) + (e.duration_minutes || 15),
-  })).sort((a, b) => a.start - b.start);
+    duration: e.duration_minutes || 15,
+  }));
 
+  // Sort: by start time first, then longer duration first (so longer entries get lane 0)
+  parsed.sort((a, b) => a.start - b.start || b.duration - a.duration);
+
+  // Assign lanes — longer entries naturally get earlier (left) lanes
   const lanes: number[] = [];
-  const assignments: { entry: Entry; lane: number }[] = [];
+  const assignments: { entry: Entry; lane: number; start: number; end: number }[] = [];
 
   for (const p of parsed) {
     let assignedLane = -1;
@@ -66,18 +71,61 @@ function assignLanes(entries: Entry[]): LaneEntry[] {
       assignedLane = lanes.length;
       lanes.push(p.end);
     }
-    assignments.push({ entry: p.entry, lane: assignedLane });
+    assignments.push({ entry: p.entry, lane: assignedLane, start: p.start, end: p.end });
   }
 
+  // For overlapping groups that start at the same time, re-sort lanes so longest is lane 0
+  // Group by overlapping clusters and reassign lanes within each cluster
+  const visited = new Set<number>();
+  for (let i = 0; i < assignments.length; i++) {
+    if (visited.has(i)) continue;
+    // Find all entries overlapping with this one (transitively)
+    const cluster: number[] = [i];
+    visited.add(i);
+    let idx = 0;
+    while (idx < cluster.length) {
+      const ci = cluster[idx];
+      for (let j = 0; j < assignments.length; j++) {
+        if (visited.has(j)) continue;
+        if (assignments[j].start < assignments[ci].end && assignments[j].end > assignments[ci].start) {
+          cluster.push(j);
+          visited.add(j);
+        }
+      }
+      idx++;
+    }
+    if (cluster.length <= 1) continue;
+
+    // Sort cluster entries by duration descending, then reassign lanes 0, 1, 2...
+    const clusterEntries = cluster.map(ci => ({ idx: ci, dur: assignments[ci].end - assignments[ci].start }));
+    clusterEntries.sort((a, b) => b.dur - a.dur);
+
+    // Reassign lanes within this cluster: longest gets lowest lane
+    const usedLanes: { end: number }[] = [];
+    for (const ce of clusterEntries) {
+      const a = assignments[ce.idx];
+      let lane = -1;
+      for (let l = 0; l < usedLanes.length; l++) {
+        if (a.start >= usedLanes[l].end) {
+          lane = l;
+          usedLanes[l].end = a.end;
+          break;
+        }
+      }
+      if (lane === -1) {
+        lane = usedLanes.length;
+        usedLanes.push({ end: a.end });
+      }
+      a.lane = lane;
+    }
+  }
+
+  // Compute totalLanes (max concurrent) for each entry
   const result: LaneEntry[] = assignments.map(a => {
-    const aStart = parseTime(a.entry.start_time!);
-    const aEnd = aStart + (a.entry.duration_minutes || 15);
     let maxConcurrent = 1;
     for (const other of assignments) {
       if (other.entry.id === a.entry.id) continue;
-      const oStart = parseTime(other.entry.start_time!);
-      const oEnd = oStart + (other.entry.duration_minutes || 15);
-      if (oStart < aEnd && oEnd > aStart) maxConcurrent++;
+      if (other.start < a.end && other.end > a.start) maxConcurrent++;
     }
     return { entry: a.entry, lane: a.lane, totalLanes: maxConcurrent };
   });
