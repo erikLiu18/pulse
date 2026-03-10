@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
+import { X } from 'lucide-react';
 import { useAppStore } from '../../stores/appStore';
 import { api } from '../../lib/api';
 import type { Category, Subcategory, Entry } from '../../lib/api';
@@ -180,9 +181,16 @@ export default function QuickEntry({ isOpen, onClose, onSaved, entries = [], pre
           'animate-slide-up',
         )}
       >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-2">
+        {/* Header with close button */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-1">
+          <div className="w-8" /> {/* spacer */}
           <div className="w-10 h-1 rounded-full bg-gray-300" />
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Progress dots */}
