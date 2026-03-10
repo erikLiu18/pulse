@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Square, Plus } from 'lucide-react';
+import { X, Square, Plus, Pencil, Check } from 'lucide-react';
 import type { Entry } from '../../lib/api';
 import { api } from '../../lib/api';
 import { useAppStore } from '../../stores/appStore';
@@ -163,6 +163,11 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
   const [hoverSlot, setHoverSlot] = useState<number | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [popupPos, setPopupPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [editing, setEditing] = useState(false);
+  const [editStart, setEditStart] = useState('');
+  const [editEnd, setEditEnd] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const scheduled = entries
     .filter((e) => e.start_time)
@@ -411,64 +416,179 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
           {/* Entry detail popup */}
           {selectedEntry && (
             <>
-              <div className="fixed inset-0 z-30" onClick={() => setSelectedEntry(null)} />
+              <div className="fixed inset-0 z-30" onClick={() => { setSelectedEntry(null); setEditing(false); }} />
               <div
-                className="fixed z-40 bg-white rounded-xl shadow-xl border border-gray-200 p-3 max-w-xs"
+                className="fixed z-40 bg-white rounded-xl shadow-xl border border-gray-200 p-3 w-72"
                 style={{
-                  left: Math.min(popupPos.x, window.innerWidth - 260),
-                  top: Math.min(popupPos.y + 10, window.innerHeight - 200),
+                  left: Math.min(popupPos.x, window.innerWidth - 290),
+                  top: Math.min(popupPos.y + 10, window.innerHeight - 300),
                 }}
               >
+                {/* Header */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg">{selectedEntry.subcategory_icon || selectedEntry.category_icon}</span>
-                  <span className="text-sm font-semibold text-gray-800">
+                  <span className="text-sm font-semibold text-gray-800 flex-1">
                     {selectedEntry.subcategory_name || 'Entry'}
                   </span>
+                  <span className="text-[10px] text-gray-400">{selectedEntry.category_name}</span>
                 </div>
-                <div className="text-xs text-gray-500 mb-1">
-                  {selectedEntry.start_time?.slice(0, 5)} – {fmtTime(parseTime(selectedEntry.start_time!) + selectedEntry.duration_minutes)} · {fmtDuration(selectedEntry.duration_minutes)}
-                </div>
-                {selectedEntry.note && (
-                  <div className="text-xs text-gray-600 bg-gray-50 rounded-lg px-2.5 py-2 mt-2">
-                    {selectedEntry.note}
-                  </div>
-                )}
-                {selectedEntry.tags && (() => {
-                  let tags: string[] = [];
-                  try { tags = typeof selectedEntry.tags === 'string' ? JSON.parse(selectedEntry.tags) : selectedEntry.tags; } catch {}
-                  return Array.isArray(tags) && tags.length > 0 ? (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {tags.map((tag: string, i: number) => (
-                        <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{tag}</span>
-                      ))}
+
+                {editing ? (
+                  /* ---- Edit Mode ---- */
+                  <div className="space-y-2">
+                    {/* Time selectors */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <label className="text-[9px] text-gray-400 uppercase font-medium">Start</label>
+                        <select
+                          value={editStart}
+                          onChange={(e) => setEditStart(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-200"
+                        >
+                          {Array.from({ length: 96 }, (_, i) => {
+                            const m = i * 15;
+                            const t = fmtTime(m);
+                            const h = Math.floor(m / 60);
+                            const mm = m % 60;
+                            const suffix = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                            return <option key={t} value={t}>{h12}:{String(mm).padStart(2,'0')} {suffix}</option>;
+                          })}
+                        </select>
+                      </div>
+                      <span className="text-gray-300 mt-3">→</span>
+                      <div className="flex-1">
+                        <label className="text-[9px] text-gray-400 uppercase font-medium">End</label>
+                        <select
+                          value={editEnd}
+                          onChange={(e) => setEditEnd(e.target.value)}
+                          className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-200"
+                        >
+                          {Array.from({ length: 96 }, (_, i) => {
+                            const m = i * 15;
+                            const t = fmtTime(m);
+                            const h = Math.floor(m / 60);
+                            const mm = m % 60;
+                            const suffix = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+                            return <option key={t} value={t}>{h12}:{String(mm).padStart(2,'0')} {suffix}</option>;
+                          })}
+                        </select>
+                      </div>
                     </div>
-                  ) : null;
-                })()}
-                {onAddEntry && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedEntry(null);
-                      onAddEntry(selectedEntry.start_time!);
-                    }}
-                    className="mt-2 w-full text-xs text-blue-500 font-medium py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <Plus size={12} />
-                    Add parallel task at this time
-                  </button>
+                    {/* Note */}
+                    <div>
+                      <label className="text-[9px] text-gray-400 uppercase font-medium">Note</label>
+                      <textarea
+                        value={editNote}
+                        onChange={(e) => setEditNote(e.target.value)}
+                        placeholder="Add a note..."
+                        rows={2}
+                        className="w-full px-2 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-200 placeholder-gray-300 resize-none"
+                      />
+                    </div>
+                    {/* Save / Cancel */}
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => setEditing(false)}
+                        className="flex-1 text-xs text-gray-500 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setSaving(true);
+                          const startMins = parseTime(editStart);
+                          const endMins = parseTime(editEnd);
+                          let dur = endMins - startMins;
+                          if (dur <= 0) dur += 1440;
+                          if (dur < 15) dur = 15;
+                          await api.updateEntry(selectedEntry.id, {
+                            start_time: editStart,
+                            duration_minutes: dur,
+                            note: editNote || null,
+                          } as any);
+                          setSaving(false);
+                          setEditing(false);
+                          setSelectedEntry(null);
+                          onRefresh();
+                        }}
+                        disabled={saving}
+                        className="flex-1 text-xs text-white font-medium py-1.5 rounded-lg bg-blue-500 hover:bg-blue-600 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Check size={12} />
+                        {saving ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ---- View Mode ---- */
+                  <>
+                    <div className="text-xs text-gray-500 mb-1">
+                      {selectedEntry.start_time?.slice(0, 5)} – {fmtTime(parseTime(selectedEntry.start_time!) + selectedEntry.duration_minutes)} · {fmtDuration(selectedEntry.duration_minutes)}
+                    </div>
+                    {selectedEntry.note && (
+                      <div className="text-xs text-gray-600 bg-gray-50 rounded-lg px-2.5 py-2 mt-2">
+                        {selectedEntry.note}
+                      </div>
+                    )}
+                    {selectedEntry.tags && (() => {
+                      let tags: string[] = [];
+                      try { tags = typeof selectedEntry.tags === 'string' ? JSON.parse(selectedEntry.tags) : selectedEntry.tags; } catch {}
+                      return Array.isArray(tags) && tags.length > 0 ? (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {tags.map((tag: string, i: number) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{tag}</span>
+                          ))}
+                        </div>
+                      ) : null;
+                    })()}
+                    {/* Action buttons */}
+                    <div className="mt-2 space-y-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const endMins = parseTime(selectedEntry.start_time!) + selectedEntry.duration_minutes;
+                          setEditStart(selectedEntry.start_time!.slice(0, 5));
+                          setEditEnd(fmtTime(endMins));
+                          setEditNote(selectedEntry.note || '');
+                          setEditing(true);
+                        }}
+                        className="w-full text-xs text-blue-500 font-medium py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <Pencil size={12} />
+                        Edit entry
+                      </button>
+                      {onAddEntry && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEntry(null);
+                            onAddEntry(selectedEntry.start_time!);
+                          }}
+                          className="w-full text-xs text-gray-500 font-medium py-1.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Plus size={12} />
+                          Add parallel task
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const id = selectedEntry.id;
+                          setSelectedEntry(null);
+                          setEditing(false);
+                          handleDelete(id);
+                        }}
+                        className="w-full text-xs text-red-400 font-medium py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-1"
+                      >
+                        <X size={12} />
+                        Delete entry
+                      </button>
+                    </div>
+                  </>
                 )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const id = selectedEntry.id;
-                    setSelectedEntry(null);
-                    handleDelete(id);
-                  }}
-                  className="mt-1 w-full text-xs text-red-400 font-medium py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-1"
-                >
-                  <X size={12} />
-                  Delete entry
-                </button>
               </div>
             </>
           )}
