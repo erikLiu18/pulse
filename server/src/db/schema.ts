@@ -54,4 +54,25 @@ export async function initializeDatabase(): Promise<void> {
   await pool.query(`
     ALTER TABLE entries ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
   `);
+
+  // Migration: add description column to categories
+  await pool.query(`
+    ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT '';
+  `);
+
+  // Seed descriptions for existing categories that don't have one
+  const descriptionSeeds: Record<string, string> = {
+    'Professional': 'Work-related activities — deep focus, meetings, email, planning, learning, and admin tasks',
+    'People': 'Time spent with others — partner, family, friends, networking, and community involvement',
+    'Growth': 'Personal development — reading, side projects, courses, writing/reflection, and fitness',
+    'Vital': 'Essential life maintenance — sleep, meals, hygiene, commute, chores, and health appointments',
+    'Leisure': 'Rest and recreation — gaming, social media, TV/movies, music, outdoors, and hobbies',
+    'Planning': 'Life planning and logistics — travel, finances, and future preparation',
+  };
+  for (const [name, desc] of Object.entries(descriptionSeeds)) {
+    await pool.query(
+      `UPDATE categories SET description = $1 WHERE name = $2 AND description = ''`,
+      [desc, name]
+    );
+  }
 }

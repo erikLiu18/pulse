@@ -5,14 +5,10 @@ import { api } from '../lib/api';
 import type { Category } from '../lib/api';
 import EmojiPicker from '../components/shared/EmojiPicker';
 
-const categoryDescriptions: Record<string, string> = {
-  Professional: 'Work-related activities — deep focus, meetings, email, planning, learning, and admin tasks',
-  People: 'Time spent with others — partner, family, friends, networking, and community involvement',
-  Growth: 'Personal development — reading, side projects, courses, writing/reflection, and fitness',
-  Vital: 'Essential life maintenance — sleep, meals, hygiene, commute, chores, and health appointments',
-  Leisure: 'Rest and recreation — gaming, social media, TV/movies, music, outdoors, and hobbies',
-  Planning: 'Life planning and logistics — travel, finances, and future preparation',
-};
+function generateDescription(name: string): string {
+  const lower = name.toLowerCase();
+  return `Activities related to ${lower} — time tracking and management`;
+}
 
 export default function GuidePage() {
   const { categories, setCategories } = useAppStore();
@@ -54,7 +50,8 @@ export default function GuidePage() {
 
   async function handleAddCategory() {
     if (!newCatName.trim() || !newCatIcon.trim()) return;
-    await api.createCategory({ name: newCatName.trim(), color: newCatColor, icon: newCatIcon.trim() });
+    const desc = generateDescription(newCatName.trim());
+    await api.createCategory({ name: newCatName.trim(), color: newCatColor, icon: newCatIcon.trim(), description: desc });
     setAddingCategory(false);
     setNewCatName('');
     setNewCatColor('#6366f1');
@@ -86,7 +83,7 @@ export default function GuidePage() {
                       </button>
                     </div>
                     <p className="text-sm text-gray-500 mt-0.5">
-                      {categoryDescriptions[cat.name] || 'Custom category'}
+                      {cat.description || 'Custom category'}
                     </p>
                   </div>
                 </div>

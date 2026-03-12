@@ -22,6 +22,7 @@ export interface Category {
   name: string;
   color: string;
   icon: string;
+  description: string;
   sort_order: number;
   subcategories: Subcategory[];
 }
@@ -100,9 +101,9 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ profile_id: profileId, start_date: startDate, end_date: endDate, content }),
     }),
-  createCategory: (data: { name: string; color: string; icon: string }) =>
+  createCategory: (data: { name: string; color: string; icon: string; description?: string }) =>
     request<Category>('/categories', { method: 'POST', body: JSON.stringify(data) }),
-  updateCategory: (id: number, data: { name: string; color: string; icon: string }) =>
+  updateCategory: (id: number, data: { name: string; color: string; icon: string; description?: string }) =>
     request<Category>(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCategory: (id: number) =>
     request<void>(`/categories/${id}`, { method: 'DELETE' }),
