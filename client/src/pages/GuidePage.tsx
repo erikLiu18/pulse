@@ -11,6 +11,7 @@ const categoryDescriptions: Record<string, string> = {
   Growth: 'Personal development — reading, side projects, courses, writing/reflection, and fitness',
   Vital: 'Essential life maintenance — sleep, meals, hygiene, commute, chores, and health appointments',
   Leisure: 'Rest and recreation — gaming, social media, TV/movies, music, outdoors, and hobbies',
+  Planning: 'Life planning and logistics — travel, finances, and future preparation',
 };
 
 export default function GuidePage() {
