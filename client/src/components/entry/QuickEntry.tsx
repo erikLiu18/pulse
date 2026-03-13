@@ -15,6 +15,7 @@ interface QuickEntryProps {
   onSaved: () => void;
   entries?: Entry[];
   prefilledStartTime?: string | null;
+  prefilledDuration?: number | null;
 }
 
 type Step = 1 | 2 | 3;
@@ -64,7 +65,14 @@ function roundedNow(): string {
   return `${hh}:${mm}`;
 }
 
-export default function QuickEntry({ isOpen, onClose, onSaved, entries = [], prefilledStartTime }: QuickEntryProps) {
+export default function QuickEntry({
+  isOpen,
+  onClose,
+  onSaved,
+  entries = [],
+  prefilledStartTime,
+  prefilledDuration,
+}: QuickEntryProps) {
   const [step, setStep] = useState<Step>(1);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<Subcategory | null>(null);
@@ -224,6 +232,7 @@ export default function QuickEntry({ isOpen, onClose, onSaved, entries = [], pre
               category={selectedCategory}
               subcategory={selectedSubcategory}
               startTime={startTime}
+              initialDuration={prefilledDuration}
               onSave={handleSave}
               onStartNow={handleStartNow}
               onBack={() => goToStep(2, 'back')}

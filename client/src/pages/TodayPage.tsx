@@ -17,9 +17,11 @@ export default function TodayPage() {
   const [multiplier, setMultiplier] = useState(1);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [prefilledStartTime, setPrefilledStartTime] = useState<string | null>(null);
+  const [prefilledDuration, setPrefilledDuration] = useState<number | null>(null);
 
-  const handleAddFromTimeline = (startTime: string) => {
+  const handleAddFromTimeline = (startTime: string, durationMinutes?: number) => {
     setPrefilledStartTime(startTime);
+    setPrefilledDuration(durationMinutes ?? null);
     setShowQuickEntry(true);
   };
 
@@ -77,10 +79,15 @@ export default function TodayPage() {
 
       <QuickEntry
         isOpen={showQuickEntry}
-        onClose={() => { setShowQuickEntry(false); setPrefilledStartTime(null); }}
+        onClose={() => {
+          setShowQuickEntry(false);
+          setPrefilledStartTime(null);
+          setPrefilledDuration(null);
+        }}
         onSaved={fetchData}
         entries={entries}
         prefilledStartTime={prefilledStartTime}
+        prefilledDuration={prefilledDuration}
       />
     </div>
   );

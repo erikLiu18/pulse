@@ -7,6 +7,7 @@ interface DurationStepperProps {
   category: Category;
   subcategory: Subcategory;
   startTime: string;
+  initialDuration?: number | null;
   onSave: (duration: number, note: string, startTime: string) => void;
   onStartNow?: (note: string, startTime: string) => void;
   onBack: () => void;
@@ -59,6 +60,7 @@ export default function DurationStepper({
   category,
   subcategory,
   startTime: initialStartTime,
+  initialDuration,
   onSave,
   onStartNow,
   onBack,
@@ -66,7 +68,7 @@ export default function DurationStepper({
 }: DurationStepperProps) {
   const [startTime, setStartTime] = useState(initialStartTime);
   const [endTime, setEndTime] = useState(() =>
-    minutesToTime(timeToMinutes(initialStartTime) + 30),
+    minutesToTime(timeToMinutes(initialStartTime) + (initialDuration || 30))
   );
   const [note, setNote] = useState('');
 

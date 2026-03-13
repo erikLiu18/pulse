@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 interface Props {
   entries: Entry[];
   onRefresh: () => void;
-  onAddEntry?: (startTime: string) => void;
+  onAddEntry?: (startTime: string, durationMinutes?: number) => void;
 }
 
 const PX_PER_15 = 12;
@@ -161,6 +161,7 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
   }, [isToday]);
 
   const [hoverSlot, setHoverSlot] = useState<number | null>(null);
+  const [dragStartSlot, setDragStartSlot] = useState<number | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<Entry | null>(null);
   const [popupPos, setPopupPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [editing, setEditing] = useState(false);
@@ -204,16 +205,44 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
     setHoverSlot(null);
   };
 
-  // Click on gutter or empty block area → add entry
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (dragStartSlot !== null && hoverSlot !== null && onAddEntry) {
+        let start = dragStartSlot;
+        let end = hoverSlot;
+        if (start > end) {
+          const temp = start;
+          start = end;
+          end = temp;
+        }
+        // If a single slot was clicked or dragged, end is the slot, so duration is 15.
+        // If start is 10:00 and end is 10:15, duration is 30.
+        const durationMinutes = end - start + 15;
+        
+        // Prevent action if starting from an occupied slot
+        if (!isSlotOccupied(start)) {
+          onAddEntry(fmtTime(start), durationMinutes);
+        }
+      }
+      setDragStartSlot(null);
+    };
+
+    if (dragStartSlot !== null) {
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+    }
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [dragStartSlot, hoverSlot, onAddEntry, isSlotOccupied]);
+
+  // Click on gutter strip -> add 15m entry
   const handleGutterClick = (slot: number) => {
-    if (onAddEntry) onAddEntry(fmtTime(slot));
+    if (onAddEntry) onAddEntry(fmtTime(slot), 15);
   };
 
-  const handleBlockAreaClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Drag start
+  const handleBlockAreaMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest('[data-entry]')) return;
-    if (hoverSlot === null || !onAddEntry) return;
-    if (!isSlotOccupied(hoverSlot)) {
-      onAddEntry(fmtTime(hoverSlot));
+    if (hoverSlot !== null && !isSlotOccupied(hoverSlot)) {
+      setDragStartSlot(hoverSlot);
     }
   };
 
@@ -291,10 +320,40 @@ export default function Timeline({ entries, onRefresh, onAddEntry }: Props) {
           <div
             className="absolute"
             style={{ left: BLOCK_L, right: 4, top: 0, bottom: 0 }}
-            onClick={handleBlockAreaClick}
+            onMouseDown={handleBlockAreaMouseDown}
           >
-            {/* Hover highlight — only on empty (unoccupied) slots */}
-            {hoverSlot !== null && !isSlotOccupied(hoverSlot) && (
+            {/* Drag selection highlight */}
+            {dragStartSlot !== null && hoverSlot !== null && (
+              (() => {
+                let start = dragStartSlot;
+                let end = hoverSlot;
+                if (start > end) {
+                  const temp = start;
+                  start = end;
+                  end = temp;
+                }
+                const duration = end - start + 15;
+                const top = (start / 15) * PX_PER_15;
+                const height = (duration / 15) * PX_PER_15;
+
+                return (
+                  <div
+                    className="absolute left-0 right-0 bg-blue-100/60 border border-blue-400 rounded-sm pointer-events-none z-10"
+                    style={{
+                      top,
+                      height,
+                    }}
+                  >
+                    <span className="absolute left-2 top-0 text-[10px] text-blue-600 font-bold leading-[12px] pt-1">
+                      {fmtTime(start)} ({fmtDuration(duration)})
+                    </span>
+                  </div>
+                );
+              })()
+            )}
+
+            {/* Default hover highlight — only on empty slots when not dragging */}
+            {hoverSlot !== null && dragStartSlot === null && !isSlotOccupied(hoverSlot) && (
               <div
                 className="absolute left-0 right-0 bg-gray-100/60 border border-dashed border-gray-300/40 rounded-sm pointer-events-none z-10"
                 style={{
