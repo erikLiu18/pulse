@@ -1,13 +1,14 @@
-import { Home, BarChart3, Sparkles, BookOpen } from 'lucide-react';
+import { Home, BarChart3, Sparkles, BookOpen, Settings } from 'lucide-react';
 import clsx from 'clsx';
 
-export type Tab = 'today' | 'analytics' | 'insights' | 'guide';
+export type Tab = 'today' | 'analytics' | 'insights' | 'guide' | 'settings';
 
 const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'today', label: 'Today', icon: Home },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'insights', label: 'Insights', icon: Sparkles },
   { id: 'guide', label: 'Guide', icon: BookOpen },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ];
 
 interface BottomNavProps {

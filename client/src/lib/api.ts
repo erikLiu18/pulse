@@ -15,6 +15,8 @@ export interface Profile {
   name: string;
   avatar: string;
   created_at: string;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
 }
 
 export interface Category {
@@ -74,6 +76,7 @@ export interface FrequentActivity {
 
 export const api = {
   getProfiles: () => request<Profile[]>('/profiles'),
+  updateProfile: (id: number, data: Partial<Profile>) => request<Profile>(`/profiles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   getCategories: () => request<Category[]>('/categories'),
   getFrequentActivities: (profileId: number) =>
     request<FrequentActivity[]>(`/entries/frequent?profile_id=${profileId}`),

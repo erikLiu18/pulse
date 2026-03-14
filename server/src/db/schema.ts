@@ -48,11 +48,27 @@ export async function initializeDatabase(): Promise<void> {
       generated_at TIMESTAMPTZ DEFAULT NOW()
     );
     CREATE INDEX IF NOT EXISTS idx_insights_profile_dates ON insights(profile_id, start_date, end_date);
+
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(profile_id, endpoint)
+    );
   `);
 
   // Migration: add is_active column if it doesn't exist (for existing databases)
   await pool.query(`
     ALTER TABLE entries ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;
+  `);
+
+  // Migration: add quiet hours to profiles
+  await pool.query(`
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS quiet_hours_start TEXT;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS quiet_hours_end TEXT;
   `);
 
   // Migration: add description column to categories

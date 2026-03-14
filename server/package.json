@@ -11,12 +11,16 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
-    "pg": "^8.16.0"
+    "node-cron": "^4.2.1",
+    "pg": "^8.16.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.2",
+    "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.11.0",
+    "@types/web-push": "^3.6.4",
     "tsx": "^4.19.4",
     "typescript": "^5.8.2"
   }
