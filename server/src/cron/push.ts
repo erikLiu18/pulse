@@ -109,7 +109,12 @@ export function startCronJobs() {
             pushPayload = {
               title: "Pulse Timer Active",
               body: `Are you still doing ${latestEntry.subcategory_name}?`,
-              url: "/"
+              url: "/",
+              entryId: latestEntry.id,
+              actions: [
+                { action: "ignore", title: "Yes" },
+                { action: "stop", title: "No" }
+              ]
             };
           }
         } 

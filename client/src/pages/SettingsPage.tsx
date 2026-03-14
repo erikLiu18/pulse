@@ -27,6 +27,7 @@ export default function SettingsPage() {
   const [quietHoursStart, setQuietHoursStart] = useState(activeProfile?.quiet_hours_start || '');
   const [quietHoursEnd, setQuietHoursEnd] = useState(activeProfile?.quiet_hours_end || '');
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [statusMessage, setStatusMessage] = useState({ text: '', type: '' });
 
   // Check if push subscription already exists in browser
@@ -119,6 +120,26 @@ export default function SettingsPage() {
     }
   };
 
+  const handleTestNotification = async () => {
+    if (!activeProfileId) return;
+    setTesting(true);
+    try {
+      const res = await fetch('/api/push/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: activeProfileId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      setStatusMessage({ text: 'Test notification sent!', type: 'success' });
+    } catch (err: any) {
+      setStatusMessage({ text: err.message || 'Failed to send test notification.', type: 'error' });
+    } finally {
+      setTesting(false);
+      setTimeout(() => setStatusMessage({ text: '', type: '' }), 4000);
+    }
+  };
+
   const handleSaveSettings = async () => {
     if (!activeProfileId) return;
     setSaving(true);
@@ -154,8 +175,8 @@ export default function SettingsPage() {
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Push Notifications Section */}
         <div className="p-6 border-b border-gray-100">
-          <div className="flex items-start justify-between">
-            <div className="flex gap-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
               <div className={clsx(
                 "p-2 rounded-lg flex-shrink-0 mt-0.5",
                 notificationsEnabled ? "bg-blue-50 text-blue-600" : "bg-gray-50 text-gray-400"
@@ -191,11 +212,23 @@ export default function SettingsPage() {
             </button>
           </div>
           
-          <div className="mt-4 flex items-start gap-2 text-xs text-amber-700 bg-amber-50 p-3 rounded-lg">
-            <Info size={14} className="flex-shrink-0 mt-0.5" />
-            <p>
-              On iOS devices, you must add Pulse to your Home Screen first for Push Notifications to function.
-            </p>
+          <div className="mt-4 flex items-center justify-between gap-4">
+            <div className="flex items-start gap-2 text-xs text-amber-700 bg-amber-50 p-3 rounded-lg flex-1">
+              <Info size={14} className="flex-shrink-0 mt-0.5" />
+              <p>
+                On iOS devices, you must add Pulse to your Home Screen first for Push Notifications to function.
+              </p>
+            </div>
+            {notificationsEnabled && (
+              <button
+                onClick={handleTestNotification}
+                disabled={testing || saving}
+                className="flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50"
+              >
+                <Bell size={14} />
+                {testing ? 'Sending...' : 'Test'}
+              </button>
+            )}
           </div>
         </div>
 
@@ -213,7 +246,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 ml-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 ml-0 sm:ml-12 mt-4 sm:mt-0">
             <div>
               <label htmlFor="quiet-start" className="block text-sm font-medium text-gray-700 mb-1">
                 From

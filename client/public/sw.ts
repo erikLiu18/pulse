@@ -10,7 +10,6 @@
 
 import { clientsClaim } from 'workbox-core';
 import { precacheAndRoute, createHandlerBoundToURL } from 'workbox-precaching';
-import { push } from 'web-push';
 
 declare const self: ServiceWorkerGlobalScope;
 
@@ -29,12 +28,14 @@ self.addEventListener('push', (event) => {
   try {
     const data = event.data.json();
     const title = data.title || 'Pulse';
-    const options = {
+    const options: any = {
       body: data.body || 'You have a new message.',
       icon: '/pwa-192x192.png',
       badge: '/mask-icon.svg',
+      actions: data.actions || [],
       data: {
-        url: data.url || '/'
+        url: data.url || '/',
+        entryId: data.entryId || null
       }
     };
 
@@ -48,24 +49,44 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
+  const action = event.action;
   const urlToOpen = event.notification.data.url || '/';
+  const entryId = event.notification.data.entryId;
 
-  // This looks to see if the current is already open and
-  // focuses if it is
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((windowClients) => {
-      // Check if there is already a window/tab open with the target URL
-      for (let i = 0; i < windowClients.length; i++) {
-        const client = windowClients[i];
-        // If so, just focus it.
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
-        }
+  // "Yes, still doing it"
+  if (action === 'ignore') {
+    return;
+  }
+
+  const handleNotificationAction = async () => {
+    // "No, stop timer"
+    if (action === 'stop' && entryId) {
+      try {
+        const now = new Date();
+        const end_time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        // Automatically end the entry in the background
+        await fetch(`/api/entries/${entryId}/finish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ end_time })
+        });
+      } catch (err) {
+        console.error('Failed to stop timer from SW:', err);
       }
-      // If not, then open the target URL in a new window/tab.
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
+    }
+
+    // Direct user to app
+    const windowClients = await self.clients.matchAll({ type: 'window' });
+    for (let i = 0; i < windowClients.length; i++) {
+      const client = windowClients[i];
+      if (client.url === urlToOpen && 'focus' in client) {
+        return client.focus();
       }
-    })
-  );
+    }
+    if (self.clients.openWindow) {
+      return self.clients.openWindow(urlToOpen);
+    }
+  };
+
+  event.waitUntil(handleNotificationAction());
 });
