@@ -93,12 +93,19 @@ export function startCronJobs() {
         const now = new Date();
         const oneHourMs = 60 * 60 * 1000;
 
+        // Notification schedule: 1h, 1.5h, 2.5h, 4.5h elapsed
+        const targetElapsedMins = [60, 90, 150, 270];
+        const targetElapsedMs = targetElapsedMins.map(m => m * 60 * 1000);
+        const fiveMinsMs = 5 * 60 * 1000;
+
         let pushPayload = null;
 
-        // Condition A: Active entry running for > 1 hour
+        // Condition A: Active entry running too long
         if (latestEntry.is_active) {
           const timeSinceStart = now.getTime() - entryStartTime.getTime();
-          if (timeSinceStart > oneHourMs) {
+          const shouldNotify = targetElapsedMs.some(target => timeSinceStart >= target && timeSinceStart < target + fiveMinsMs);
+          
+          if (shouldNotify) {
             pushPayload = {
               title: "Pulse Timer Active",
               body: `Are you still doing ${latestEntry.subcategory_name}?`,
@@ -106,10 +113,12 @@ export function startCronJobs() {
             };
           }
         } 
-        // Condition B: Inactive entry, nothing logged for > 1 hour since last end time
+        // Condition B: Inactive entry
         else {
           const timeSinceEnd = now.getTime() - entryEndTime.getTime();
-          if (timeSinceEnd > oneHourMs) {
+          const shouldNotify = targetElapsedMs.some(target => timeSinceEnd >= target && timeSinceEnd < target + fiveMinsMs);
+          
+          if (shouldNotify) {
             pushPayload = {
               title: "Time is ticking",
               body: "What are you doing? Log your time.",
