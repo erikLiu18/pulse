@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { X } from 'lucide-react';
 import { useAppStore } from '../../stores/appStore';
 import { api } from '../../lib/api';
-import type { Category, Subcategory, Entry } from '../../lib/api';
+import type { Category, Subcategory, Entry, FrequentActivity } from '../../lib/api';
 import CategoryGrid from './CategoryGrid';
 import SubcategoryDrawer from './SubcategoryDrawer';
 import DurationStepper from './DurationStepper';
@@ -81,6 +81,7 @@ export default function QuickEntry({
 
   const activeProfileId = useAppStore((s) => s.activeProfileId);
   const selectedDate = useAppStore((s) => s.selectedDate);
+  const categories = useAppStore((s) => s.categories);
 
   const startTime = useMemo(() => {
     if (prefilledStartTime) return prefilledStartTime;
@@ -120,6 +121,21 @@ export default function QuickEntry({
       goToStep(3, 'forward');
     },
     [goToStep],
+  );
+
+  const handleFrequentSelect = useCallback(
+    (act: FrequentActivity) => {
+      const cat = categories.find((c) => c.id === act.category_id);
+      if (cat) {
+        const sub = cat.subcategories.find((s) => s.id === act.subcategory_id);
+        if (sub) {
+          setSelectedCategory(cat);
+          setSelectedSubcategory(sub);
+          goToStep(3, 'forward');
+        }
+      }
+    },
+    [categories, goToStep],
   );
 
   const handleSave = useCallback(
@@ -219,7 +235,7 @@ export default function QuickEntry({
             direction === 'forward' ? 'animate-step-forward' : 'animate-step-back',
           )}
         >
-          {step === 1 && <CategoryGrid onSelect={handleCategorySelect} />}
+          {step === 1 && <CategoryGrid onSelect={handleCategorySelect} onSelectFrequent={handleFrequentSelect} />}
           {step === 2 && selectedCategory && (
             <SubcategoryDrawer
               category={selectedCategory}

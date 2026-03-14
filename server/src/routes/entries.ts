@@ -24,6 +24,31 @@ router.get('/', async (req, res) => {
   res.json(rows);
 });
 
+// Get frequent activities for a profile
+router.get('/frequent', async (req, res) => {
+  const { profile_id } = req.query;
+  if (!profile_id) {
+    res.status(400).json({ error: 'profile_id required' });
+    return;
+  }
+
+  const { rows } = await pool.query(`
+    SELECT s.id as subcategory_id, s.name as subcategory_name, s.icon as subcategory_icon,
+           c.id as category_id, c.name as category_name, c.color as category_color, c.icon as category_icon,
+           COUNT(e.id) as use_count
+    FROM entries e
+    JOIN subcategories s ON e.subcategory_id = s.id
+    JOIN categories c ON s.category_id = c.id
+    WHERE e.profile_id = $1
+    GROUP BY s.id, c.id
+    ORDER BY use_count DESC
+    LIMIT 6
+  `, [profile_id]);
+
+  res.json(rows);
+});
+
+
 // Create entry
 router.post('/', async (req, res) => {
   const { profile_id, subcategory_id, date, start_time, duration_minutes, tags, note, is_active } = req.body;

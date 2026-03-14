@@ -61,9 +61,22 @@ export interface DailyStat {
   total_minutes: number;
 }
 
+export interface FrequentActivity {
+  subcategory_id: number;
+  subcategory_name: string;
+  subcategory_icon: string;
+  category_id: number;
+  category_name: string;
+  category_color: string;
+  category_icon: string;
+  use_count: string;
+}
+
 export const api = {
   getProfiles: () => request<Profile[]>('/profiles'),
   getCategories: () => request<Category[]>('/categories'),
+  getFrequentActivities: (profileId: number) =>
+    request<FrequentActivity[]>(`/entries/frequent?profile_id=${profileId}`),
   getEntries: (profileId: number, date: string) =>
     request<Entry[]>(`/entries?profile_id=${profileId}&date=${date}`),
   createEntry: (data: {
