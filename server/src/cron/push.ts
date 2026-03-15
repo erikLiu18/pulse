@@ -81,10 +81,13 @@ export function startCronJobs() {
         const latestEntry = latestEntries[0];
         
         // Create Date objects for comparison
-        // start_time is "HH:mm" on date "YYYY-MM-DD"
-        // In local time parsing (which Postgres date + text usually implies for this app)
+        // start_time is "HH:mm" on date "YYYY-MM-DD" stored in user's LOCAL Pacific time.
+        // Railway servers run in UTC, so we must append the Pacific offset (-07:00 for PDT)
+        // to prevent the server from treating local times as UTC (which would be 7h off).
+        // TODO: store user timezone in profile for proper multi-timezone support.
         const entryDateStr = typeof latestEntry.date === 'string' ? latestEntry.date.split('T')[0] : latestEntry.date.toISOString().split('T')[0];
-        const localStartTimeString = `${entryDateStr}T${latestEntry.start_time}:00`;
+        const pacificOffset = '-07:00'; // PDT (UTC-7). Change to -08:00 for PST (Nov-Mar).
+        const localStartTimeString = `${entryDateStr}T${latestEntry.start_time}:00${pacificOffset}`;
         const entryStartTime = new Date(localStartTimeString);
         
         // Add duration to get end time
